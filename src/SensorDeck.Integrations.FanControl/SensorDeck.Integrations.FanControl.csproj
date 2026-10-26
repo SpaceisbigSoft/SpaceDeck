@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Talks to the separately installed FanControl app (https://github.com/Rem0o/FanControl.Releases).
+    SensorDeck never writes to fans itself: it only asks FanControl to switch configuration files.
+    Used by the UI app (runs in the user's session), not the collector service.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>SensorDeck.Integrations.FanControl</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SensorDeck.Collector.Tests" />
+  </ItemGroup>
+
+</Project>

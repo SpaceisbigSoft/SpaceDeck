@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Only for the tray icon / notifications (NotifyIcon). Keep WinForms names out of every file. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>SensorDeck.App</RootNamespace>
+    <AssemblyName>SensorDeck</AssemblyName>
+    <!-- WPF's Fluent ThemeMode is marked experimental. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+    <!-- Per-monitor DPI awareness (see app.manifest). -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <!-- Network dashboard (Remote/RemoteServer.cs): Kestrel serves the web client to browsers on the home network. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <EmbeddedResource Include="Remote\Web\**\*" LogicalName="SensorDeck.Web.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" />
+    <!-- Memory part numbers and slots (Win32_PhysicalMemory) for the sidebar's RAM section. -->
+    <PackageReference Include="System.Management" />
+  </ItemGroup>
+
+  <!--
+    WinForms is referenced only for the tray icon. Its implicit usings (System.Windows.Forms, System.Drawing) would make
+    WPF names like Application, Brush and Point ambiguous everywhere, so drop them — also at build time, in case the SDK
+    adds them after this file is evaluated.
+  -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <Target Name="RemoveWinFormsImplicitUsings" BeforeTargets="GenerateGlobalUsings">
+    <ItemGroup>
+      <Using Remove="System.Windows.Forms" />
+      <Using Remove="System.Drawing" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SensorDeck.Core\SensorDeck.Core.csproj" />
+    <ProjectReference Include="..\SensorDeck.Integrations.FanControl\SensorDeck.Integrations.FanControl.csproj" />
+  </ItemGroup>
+
+  <!-- License, notices and privacy note ship next to the program (About opens them). -->
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Link="LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\PRIVACY.md" Link="PRIVACY.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

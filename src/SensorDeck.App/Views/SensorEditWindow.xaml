@@ -1,0 +1,45 @@
+<Window x:Class="SensorDeck.App.Views.SensorEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Customize sensor" Width="460" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Skin.Background}" Foreground="{DynamicResource Skin.Text}"
+        FontFamily="{DynamicResource Skin.Font.Body}">
+  <StackPanel Margin="24,20,24,20">
+    <TextBlock Text="{Binding OriginalName}" Style="{StaticResource SectionTitle}" FontSize="15" />
+    <TextBlock Text="{Binding Sensor.GroupName}" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+
+    <TextBlock Text="Name (blank = the hardware's name)" Style="{StaticResource Caption}" Margin="0,18,0,4" />
+    <TextBox Text="{Binding NameText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Display name" />
+
+    <CheckBox Content="Hide this sensor (it stays on dashboards where it's already used)" IsChecked="{Binding Hidden}" Margin="0,14,0,0" />
+
+    <TextBlock Text="{Binding CorrectionLabel}" Style="{StaticResource Caption}" Margin="0,18,0,4" />
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Text="Scale" VerticalAlignment="Center" Margin="0,0,8,0" />
+      <TextBox Grid.Column="1" Text="{Binding ScaleText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Scale" />
+      <TextBlock Grid.Column="2" Text="Offset" VerticalAlignment="Center" Margin="16,0,8,0" />
+      <TextBox Grid.Column="3" Text="{Binding OffsetText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Offset" />
+    </Grid>
+    <TextBlock Text="{Binding Preview}" Style="{StaticResource Numeric}" FontSize="{DynamicResource Skin.Size.Small}" Margin="0,8,0,0" TextWrapping="Wrap" />
+    <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap" TextTrimming="None" Foreground="{DynamicResource Skin.TextFaint}"
+               Text="Only for boards that report a value at the wrong scale (e.g. a 12 V rail shown as 1.1 V: scale 11). Alerts and charts use the corrected value." />
+
+    <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Skin.Critical}" Margin="0,10,0,0" TextWrapping="Wrap"
+               Visibility="{Binding Error, Converter={StaticResource VisibleWhen}}" />
+
+    <DockPanel Margin="0,20,0,0">
+      <Button DockPanel.Dock="Left" Content="Reset to original" Command="{Binding ResetCommand}" Padding="12,6" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="Save" IsDefault="True" Padding="18,6" Command="{Binding SaveCommand}" Style="{DynamicResource AccentButtonStyle}" />
+        <Button Content="Cancel" IsCancel="True" Padding="18,6" Margin="10,0,0,0" />
+      </StackPanel>
+    </DockPanel>
+  </StackPanel>
+</Window>

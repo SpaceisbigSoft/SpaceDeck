@@ -1,0 +1,71 @@
+<Window x:Class="SensorDeck.App.Views.DashboardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:SensorDeck.App.Views"
+        Title="{Binding Name, StringFormat='{}{0} · SensorDeck'}"
+        Width="1280" Height="800" MinWidth="320" MinHeight="240"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource Skin.Background}" Foreground="{DynamicResource Skin.Text}"
+        FontFamily="{DynamicResource Skin.Font.Body}">
+  <!--
+    A dashboard on its own, without app chrome: drag anywhere to move it (e.g. onto a second monitor),
+    F11 or double-click toggles full screen, T keeps it on top, Esc closes; right-click for options (opacity).
+    Read-only; edit layouts in the main window. Position and options are remembered per dashboard.
+  -->
+  <Window.ContextMenu>
+    <ContextMenu>
+      <MenuItem x:Name="TopmostItem" Header="Always on top" IsCheckable="True" InputGestureText="T" Click="Topmost_Click" />
+      <MenuItem Header="Opacity">
+        <MenuItem Header="100 %" Tag="1" Click="Opacity_Click" />
+        <MenuItem Header="90 %" Tag="0.9" Click="Opacity_Click" />
+        <MenuItem Header="75 %" Tag="0.75" Click="Opacity_Click" />
+        <MenuItem Header="60 %" Tag="0.6" Click="Opacity_Click" />
+      </MenuItem>
+      <!-- Filled in code (ContentSize.FillMenu): fit to height, smaller, larger, 100 %. -->
+      <MenuItem x:Name="SizeMenu" Header="Size" />
+      <MenuItem Header="Full screen" InputGestureText="F11" Click="FullScreen_Click" />
+      <MenuItem x:Name="ClickThroughItem" Header="Click-through (turn off from the tray icon or the shortcut in Settings)" IsCheckable="True" Click="ClickThrough_Click" />
+      <Separator />
+      <MenuItem Header="Next dashboard" InputGestureText="→" Click="Next_Click" />
+      <MenuItem Header="Previous dashboard" InputGestureText="←" Click="Previous_Click" />
+      <MenuItem x:Name="RotateMenu" Header="Rotate dashboards">
+        <MenuItem Header="Off" Tag="0" Click="Rotate_Click" />
+        <MenuItem Header="Every 10 s" Tag="10" Click="Rotate_Click" />
+        <MenuItem Header="Every 30 s" Tag="30" Click="Rotate_Click" />
+        <MenuItem Header="Every minute" Tag="60" Click="Rotate_Click" />
+        <MenuItem Header="Every 5 minutes" Tag="300" Click="Rotate_Click" />
+      </MenuItem>
+      <Separator />
+      <MenuItem Header="Close" InputGestureText="Esc" Click="Close_Click" />
+    </ContextMenu>
+  </Window.ContextMenu>
+  <Grid MouseLeftButtonDown="Background_MouseLeftButtonDown" Background="Transparent">
+    <v:DashboardCanvas x:Name="DashCanvas" IsEditable="False" Margin="32,26,32,20" />
+
+    <!-- Close / hint, faint until hovered. -->
+    <StackPanel x:Name="Chrome" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,6,0" Opacity="0.25">
+      <TextBlock Text="Right-click for options · ←/→ or 1–9 switch · F11 full screen · Esc close" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,10,0" />
+      <!-- Icon font on the inner TextBlock only: on the Button the tooltip would inherit it (boxes). -->
+      <Button Padding="10,6" Background="Transparent" BorderThickness="0"
+              Foreground="{DynamicResource Skin.TextMuted}" Click="Close_Click" ToolTip="Close" AutomationProperties.Name="Close">
+        <TextBlock Text="&#xE8BB;" FontFamily="{StaticResource IconFont}" FontSize="11" />
+      </Button>
+      <StackPanel.Triggers>
+        <EventTrigger RoutedEvent="MouseEnter">
+          <BeginStoryboard>
+            <Storyboard>
+              <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15" />
+            </Storyboard>
+          </BeginStoryboard>
+        </EventTrigger>
+        <EventTrigger RoutedEvent="MouseLeave">
+          <BeginStoryboard>
+            <Storyboard>
+              <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.25" Duration="0:0:0.3" />
+            </Storyboard>
+          </BeginStoryboard>
+        </EventTrigger>
+      </StackPanel.Triggers>
+    </StackPanel>
+  </Grid>
+</Window>

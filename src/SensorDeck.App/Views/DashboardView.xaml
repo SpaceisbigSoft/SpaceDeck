@@ -1,0 +1,112 @@
+<UserControl x:Class="SensorDeck.App.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:SensorDeck.App.Views">
+  <UserControl.Resources>
+    <!-- Plain text action in the toolbar. -->
+    <Style x:Key="ToolbarLink" TargetType="Button">
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Margin" Value="18,0,0,0" />
+      <Setter Property="Foreground" Value="{DynamicResource Skin.TextMuted}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border Background="Transparent" Padding="0,4">
+              <ContentPresenter VerticalAlignment="Center" TextElement.FontSize="{DynamicResource Skin.Size.Body}" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource Skin.Text}" />
+              </Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource Skin.Text}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- Tabs · actions -->
+    <DockPanel Margin="0,0,0,14">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button Content="Add tile" Command="{Binding AddTileCommand}" Style="{StaticResource ToolbarLink}" />
+        <Button Command="{Binding ToggleEditCommand}" Margin="18,0,0,0" Padding="14,4" MinWidth="96">
+          <Button.Style>
+            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+              <Setter Property="Content" Value="Edit layout" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                  <Setter Property="Content" Value="Done" />
+                  <Setter Property="Foreground" Value="{DynamicResource Skin.Accent}" />
+                  <Setter Property="FontWeight" Value="{DynamicResource Skin.Weight.Strong}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Button.Style>
+        </Button>
+        <Button Command="{Binding OpenWindowCommand}" Margin="8,0,0,0" Padding="10,6"
+                ToolTip="Open this dashboard in its own window (for a second monitor or full screen)"
+                AutomationProperties.Name="Open in its own window">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="&#xE8A7;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" />
+            <TextBlock Text="Window" Margin="8,0,0,0" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <!-- The icon font is set on the TextBlock only: set on the Button, the ContextMenu inherits it and every
+             menu item renders as boxes. -->
+        <Button Margin="8,0,0,0" Padding="10,6"
+                ToolTip="More dashboard actions" AutomationProperties.Name="More dashboard actions" Click="More_Click">
+          <TextBlock Text="&#xE712;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" />
+          <Button.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="New dashboard…" Command="{Binding NewDashboardCommand}" />
+              <MenuItem Header="Rename…" Command="{Binding RenameDashboardCommand}" />
+              <MenuItem Header="Duplicate" Command="{Binding DuplicateDashboardCommand}" />
+              <MenuItem Header="Move tab left" Command="{Binding MoveLeftCommand}" />
+              <MenuItem Header="Move tab right" Command="{Binding MoveRightCommand}" />
+              <Separator />
+              <MenuItem Header="Open in its own window" Command="{Binding OpenWindowCommand}" />
+              <MenuItem Header="Reset min/max of this dashboard's sensors" Command="{Binding ResetMinMaxCommand}" />
+              <Separator />
+              <MenuItem Header="Export…" Command="{Binding ExportDashboardCommand}" />
+              <MenuItem Header="Import…" Command="{Binding ImportDashboardCommand}" />
+              <Separator />
+              <MenuItem Header="Reset to default layout…" Command="{Binding ResetDashboardCommand}" />
+              <MenuItem Header="Delete dashboard…" Command="{Binding DeleteDashboardCommand}" />
+            </ContextMenu>
+          </Button.ContextMenu>
+        </Button>
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <ListBox ItemsSource="{Binding Dashboards}" SelectedItem="{Binding Selected}" DisplayMemberPath="Name"
+                 ItemContainerStyle="{StaticResource ChipStyle}" Background="Transparent" BorderThickness="0" Padding="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Dashboards">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+        </ListBox>
+        <!-- Size on the TextBlock, not the Button, so the tooltip keeps the normal text size. -->
+        <Button Command="{Binding NewDashboardCommand}" Style="{StaticResource ToolbarLink}" Margin="0"
+                ToolTip="New dashboard" AutomationProperties.Name="New dashboard">
+          <TextBlock Text="+" FontSize="16" />
+        </Button>
+      </StackPanel>
+    </DockPanel>
+
+    <TextBlock Grid.Row="1" Text="Waiting for sensors from the collector…" Style="{StaticResource Caption}" FontSize="14"
+               Visibility="{Binding IsWaiting, Converter={StaticResource VisibleWhen}}" />
+
+    <v:DashboardCanvas Grid.Row="1" DataContext="{Binding Selected}" />
+  </Grid>
+</UserControl>

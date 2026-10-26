@@ -1,0 +1,24 @@
+<Solution>
+  <Folder Name="/docs/">
+    <File Path="docs/HANDOFF.md" />
+    <File Path="docs/PLAN.md" />
+    <File Path="docs/PROTOCOL.md" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/SensorDeck.Core/SensorDeck.Core.csproj" />
+    <Project Path="src/SensorDeck.Sources.Lhm/SensorDeck.Sources.Lhm.csproj" />
+    <Project Path="src/SensorDeck.Integrations.FanControl/SensorDeck.Integrations.FanControl.csproj" />
+    <Project Path="src/SensorDeck.Collector/SensorDeck.Collector.csproj" />
+    <Project Path="src/SensorDeck.App/SensorDeck.App.csproj" />
+    <Project Path="src/SensorDeck.Cli/SensorDeck.Cli.csproj" />
+  </Folder>
+  <Folder Name="/scripts/">
+    <File Path="scripts/Install-Collector.ps1" />
+    <File Path="scripts/Uninstall-Collector.ps1" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SensorDeck.Core.Tests/SensorDeck.Core.Tests.csproj" />
+    <Project Path="tests/SensorDeck.Collector.Tests/SensorDeck.Collector.Tests.csproj" />
+  </Folder>
+</Solution>

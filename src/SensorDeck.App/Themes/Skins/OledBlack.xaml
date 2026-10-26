@@ -1,0 +1,75 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!--
+    SKIN: OLED black. Pure black with dimmed text: easy on OLED panels (less burn-in, lower power).
+    Same keys as Monochrome.xaml (the reference skin); only values differ.
+  -->
+
+  <!-- ── Surfaces & text ─────────────────────────────────────────── -->
+  <SolidColorBrush x:Key="Skin.Background" Color="#000000" />
+  <SolidColorBrush x:Key="Skin.Surface" Color="#000000" />
+  <SolidColorBrush x:Key="Skin.Hover" Color="#121212" />
+  <SolidColorBrush x:Key="Skin.Rule" Color="#1C1C1C" />
+  <SolidColorBrush x:Key="Skin.RuleStrong" Color="#5C5C5C" />
+  <SolidColorBrush x:Key="Skin.Text" Color="#D4D4D4" />
+  <SolidColorBrush x:Key="Skin.TextMuted" Color="#8E8E8E" />
+  <SolidColorBrush x:Key="Skin.TextFaint" Color="#6A6A6A" />
+  <SolidColorBrush x:Key="Skin.Accent" Color="#6EA8FE" />
+  <SolidColorBrush x:Key="Skin.OnAccent" Color="#000000" />
+
+  <!-- ── Data marks ──────────────────────────────────────────────── -->
+  <SolidColorBrush x:Key="Skin.Track" Color="#1A1A1A" />
+  <SolidColorBrush x:Key="Skin.Fill" Color="#6EA8FE" />
+  <SolidColorBrush x:Key="Skin.Line" Color="#6EA8FE" />
+  <SolidColorBrush x:Key="Skin.Grid" Color="#1C1C1C" />
+  <SolidColorBrush x:Key="Skin.BandOk" Color="#121212" />
+
+  <!-- Status -->
+  <SolidColorBrush x:Key="Skin.Ok" Color="#34D399" />
+  <SolidColorBrush x:Key="Skin.Warning" Color="#FBBF24" />
+  <SolidColorBrush x:Key="Skin.Critical" Color="#F87171" />
+  <SolidColorBrush x:Key="Skin.Unknown" Color="#4D4D4D" />
+  <SolidColorBrush x:Key="Skin.Connected" Color="#34D399" />
+  <SolidColorBrush x:Key="Skin.Connecting" Color="#4D4D4D" />
+  <SolidColorBrush x:Key="Skin.Disconnected" Color="#F87171" />
+
+  <SolidColorBrush x:Key="Skin.Series.0" Color="#6EA8FE" />
+  <SolidColorBrush x:Key="Skin.Series.1" Color="#F0997A" />
+  <SolidColorBrush x:Key="Skin.Series.2" Color="#6FCF97" />
+  <SolidColorBrush x:Key="Skin.Series.3" Color="#E6C76A" />
+  <SolidColorBrush x:Key="Skin.Series.4" Color="#C792EA" />
+  <SolidColorBrush x:Key="Skin.Series.5" Color="#7FB4CA" />
+
+  <!-- ── Type ────────────────────────────────────────────────────── -->
+  <!-- Windows fonts only (no bundling): Segoe UI includes a Light weight; Cascadia Mono ships with Windows Terminal. -->
+  <FontFamily x:Key="Skin.Font.Display">Segoe UI Variable Display, Segoe UI</FontFamily>
+  <FontFamily x:Key="Skin.Font.Body">Segoe UI</FontFamily>
+  <FontFamily x:Key="Skin.Font.Mono">Cascadia Mono, Consolas</FontFamily>
+  <FontWeight x:Key="Skin.Weight.Hero">SemiBold</FontWeight>
+  <FontWeight x:Key="Skin.Weight.Title">SemiBold</FontWeight>
+  <FontWeight x:Key="Skin.Weight.Strong">SemiBold</FontWeight>
+
+  <sys:Double x:Key="Skin.Size.Hero">54</sys:Double>
+  <sys:Double x:Key="Skin.Size.Large">30</sys:Double>
+  <sys:Double x:Key="Skin.Size.Title">28</sys:Double>
+  <sys:Double x:Key="Skin.Size.Body">14</sys:Double>
+  <sys:Double x:Key="Skin.Size.Small">12</sys:Double>
+  <sys:Double x:Key="Skin.Size.Tiny">11</sys:Double>
+
+  <!-- ── Cards (tiles and page sections) ─────────────────────────── -->
+  <SolidColorBrush x:Key="Skin.Card.Background" Color="#000000" />
+  <SolidColorBrush x:Key="Skin.Card.Border" Color="#1C1C1C" />
+  <Thickness x:Key="Skin.Card.BorderThickness">0,1,0,0</Thickness>
+  <Thickness x:Key="Skin.Card.Padding">0,12,0,0</Thickness>
+  <CornerRadius x:Key="Skin.Card.Radius">0</CornerRadius>
+  <!-- Theme for WPF's stock controls (ComboBox, TextBox…): Light or Dark. -->
+  <sys:String x:Key="Skin.Base">Dark</sys:String>
+
+  <!-- ── Shape ───────────────────────────────────────────────────── -->
+  <sys:Double x:Key="Skin.BarThickness">4</sys:Double>
+  <sys:Double x:Key="Skin.GaugeThickness">10</sys:Double>
+  <sys:Double x:Key="Skin.LineThickness">2</sys:Double>
+
+</ResourceDictionary>

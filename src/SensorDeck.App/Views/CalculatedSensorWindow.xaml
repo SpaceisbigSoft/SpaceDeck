@@ -1,0 +1,127 @@
+<Window x:Class="SensorDeck.App.Views.CalculatedSensorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Name="Root"
+        Title="{Binding Title}" Width="860" Height="620" MinWidth="640" MinHeight="460"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Skin.Background}" Foreground="{DynamicResource Skin.Text}"
+        FontFamily="{DynamicResource Skin.Font.Body}">
+  <Window.Resources>
+    <Style x:Key="Label" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+      <Setter Property="Margin" Value="0,14,0,4" />
+    </Style>
+  </Window.Resources>
+  <Grid Margin="24,20,24,20">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="28" />
+      <ColumnDefinition Width="300" />
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- Settings -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel>
+        <TextBlock Text="{Binding Title}" Style="{StaticResource SectionTitle}" FontSize="15" />
+        <TextBlock Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap" TextTrimming="None"
+                   Text="Combines other sensors into a new one that works in tiles, alerts, recordings and the History chart (from when the app started)." />
+
+        <TextBlock Text="Operation" Style="{StaticResource Label}" />
+        <ComboBox ItemsSource="{Binding Operations}" SelectedItem="{Binding SelectedOperation}" DisplayMemberPath="Label"
+                  AutomationProperties.Name="Operation" />
+
+        <TextBlock Text="Inputs (click sensors on the right; the first one is A)" Style="{StaticResource Label}" />
+        <ItemsControl ItemsSource="{Binding Chosen}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <DockPanel Margin="0,2">
+                <Button DockPanel.Dock="Right" Content="Remove" Padding="8,2" Margin="6,0,0,0"
+                        Command="{Binding DataContext.ToggleCommand, ElementName=Root}" CommandParameter="{Binding}" />
+                <Button DockPanel.Dock="Right" Content="Make A" Padding="8,2"
+                        Command="{Binding DataContext.MakeFirstCommand, ElementName=Root}" CommandParameter="{Binding}" />
+                <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                  <Run Text="{Binding Name, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding DisplayValue, Mode=OneWay}" Foreground="{DynamicResource Skin.TextMuted}" />
+                </TextBlock>
+              </DockPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="{Binding KindHint}" Style="{StaticResource Caption}" Foreground="{DynamicResource Skin.Warning}" TextWrapping="Wrap" TextTrimming="None"
+                   Visibility="{Binding KindHint, Converter={StaticResource VisibleWhen}}" />
+
+        <Grid Margin="0,14,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="100" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="100" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="× factor" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <TextBox Grid.Column="1" Text="{Binding FactorText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Factor" />
+          <TextBlock Grid.Column="2" Text="+ offset" VerticalAlignment="Center" Margin="16,0,8,0" />
+          <TextBox Grid.Column="3" Text="{Binding OffsetText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Offset" />
+        </Grid>
+        <TextBlock Style="{StaticResource Caption}" Margin="0,4,0,0" Text="Offsets are in the inputs' base unit (°C for temperatures)." />
+
+        <TextBlock Text="{Binding Preview}" Style="{StaticResource Numeric}" Margin="0,16,0,0" FontSize="16" />
+
+        <TextBlock Text="Name (optional)" Style="{StaticResource Label}" />
+        <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Name" />
+
+        <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Skin.Critical}" Margin="0,12,0,0" TextWrapping="Wrap"
+                   Visibility="{Binding Error, Converter={StaticResource VisibleWhen}}" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Picker -->
+    <Grid Grid.Column="2">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+      <Grid Margin="0,0,0,8">
+        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Search sensors" />
+        <TextBlock Text="Search" Margin="11,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                   Style="{StaticResource Caption}" Foreground="{DynamicResource Skin.TextFaint}"
+                   Visibility="{Binding SearchText, Converter={StaticResource VisibleWhen}, ConverterParameter=invert}" />
+      </Grid>
+      <ListBox Grid.Row="1" ItemsSource="{Binding Picker}" BorderThickness="0" Background="Transparent"
+               VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.GroupStyle>
+          <GroupStyle>
+            <GroupStyle.HeaderTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" Margin="0,10,0,2" FontWeight="{DynamicResource Skin.Weight.Strong}" />
+              </DataTemplate>
+            </GroupStyle.HeaderTemplate>
+          </GroupStyle>
+        </ListBox.GroupStyle>
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <Button Command="{Binding DataContext.ToggleCommand, ElementName=Root}" CommandParameter="{Binding}"
+                    Style="{StaticResource RowButton}" HorizontalAlignment="Stretch">
+              <DockPanel>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding DisplayValue}" Style="{StaticResource Numeric}" Margin="8,0,0,0"
+                           FontSize="{DynamicResource Skin.Size.Small}" Foreground="{DynamicResource Skin.TextMuted}" />
+                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+              </DockPanel>
+            </Button>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
+
+    <DockPanel Grid.Row="1" Grid.ColumnSpan="3" Margin="0,16,0,0">
+      <Button DockPanel.Dock="Left" Content="Delete" Command="{Binding DeleteCommand}" Padding="14,6"
+              Visibility="{Binding IsNew, Converter={StaticResource VisibleWhen}, ConverterParameter=invert}" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="Save" IsDefault="True" Padding="18,6" Command="{Binding SaveCommand}" Style="{DynamicResource AccentButtonStyle}" />
+        <Button Content="Cancel" IsCancel="True" Padding="18,6" Margin="10,0,0,0" />
+      </StackPanel>
+    </DockPanel>
+  </Grid>
+</Window>

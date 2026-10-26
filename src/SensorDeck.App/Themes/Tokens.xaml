@@ -1,0 +1,218 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:t="clr-namespace:SensorDeck.App.Themes">
+
+  <!--
+    Shared styles. Every color, font and size comes from the active skin (Themes/Skins/*.xaml, "Skin.*" keys)
+    via DynamicResource, so swapping skins restyles the whole app. Nothing here hard-codes a color.
+  -->
+
+  <t:StatusToBrushConverter x:Key="StatusToBrush" />
+  <t:ConnectionStateToBrushConverter x:Key="ConnectionStateToBrush" />
+  <t:TimeTextConverter x:Key="TimeText" />
+  <t:VisibleWhenConverter x:Key="VisibleWhen" />
+  <t:ToDoubleConverter x:Key="ToDouble" />
+  <t:SeriesBrushConverter x:Key="SeriesBrush" />
+  <t:NotConverter x:Key="Not" />
+
+  <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+  <!--
+    Section: a block of a page, and the frame of every dashboard tile. The skin decides what it looks like:
+    Monochrome draws a strong hairline on top; Fluent and Dark HUD draw a card.
+  -->
+  <Style x:Key="Section" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource Skin.Card.Background}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Skin.Card.Border}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource Skin.Card.BorderThickness}" />
+    <Setter Property="Padding" Value="{DynamicResource Skin.Card.Padding}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource Skin.Card.Radius}" />
+  </Style>
+
+  <Style x:Key="PageTitle" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource Skin.Font.Display}" />
+    <Setter Property="FontSize" Value="{DynamicResource Skin.Size.Title}" />
+    <Setter Property="FontWeight" Value="{DynamicResource Skin.Weight.Title}" />
+    <Setter Property="Foreground" Value="{DynamicResource Skin.Text}" />
+  </Style>
+
+  <Style x:Key="SectionTitle" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource Skin.Font.Body}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="{DynamicResource Skin.Weight.Strong}" />
+    <Setter Property="Foreground" Value="{DynamicResource Skin.Text}" />
+  </Style>
+
+  <Style x:Key="Caption" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource Skin.Font.Body}" />
+    <Setter Property="FontSize" Value="{DynamicResource Skin.Size.Small}" />
+    <Setter Property="Foreground" Value="{DynamicResource Skin.TextMuted}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <Style x:Key="Body" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource Skin.Font.Body}" />
+    <Setter Property="FontSize" Value="{DynamicResource Skin.Size.Body}" />
+    <Setter Property="Foreground" Value="{DynamicResource Skin.Text}" />
+  </Style>
+
+  <!-- Numbers: mono, tabular, so values don't jiggle as digits change every second. -->
+  <Style x:Key="Numeric" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource Skin.Font.Mono}" />
+    <Setter Property="FontSize" Value="{DynamicResource Skin.Size.Body}" />
+    <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+    <Setter Property="Foreground" Value="{DynamicResource Skin.Text}" />
+  </Style>
+
+  <!-- Navigation: plain text links; the selected one is bold ink with a short accent rule. -->
+  <Style x:Key="NavItemStyle" TargetType="ListBoxItem">
+    <Setter Property="Margin" Value="0,1" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBoxItem">
+          <Border x:Name="Bg" Background="Transparent" Padding="0,7">
+            <StackPanel Orientation="Horizontal">
+              <Border x:Name="Mark" Width="12" Height="2" Margin="0,0,10,0" VerticalAlignment="Center"
+                      Background="{DynamicResource Skin.Accent}" Visibility="Hidden" />
+              <ContentPresenter x:Name="Content" TextElement.Foreground="{DynamicResource Skin.TextMuted}" />
+            </StackPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Content" Property="TextElement.Foreground" Value="{DynamicResource Skin.Text}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Content" Property="TextElement.Foreground" Value="{DynamicResource Skin.Text}" />
+              <Setter TargetName="Content" Property="TextElement.FontWeight" Value="{DynamicResource Skin.Weight.Strong}" />
+              <Setter TargetName="Mark" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Skin.Hover}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Category filters: text tabs; the selected one is underlined in ink. -->
+  <Style x:Key="ChipStyle" TargetType="ListBoxItem">
+    <Setter Property="Margin" Value="0,0,18,0" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ListBoxItem">
+          <Border x:Name="Chip" BorderThickness="0,0,0,1" BorderBrush="Transparent" Padding="0,4">
+            <ContentPresenter x:Name="Text" TextElement.Foreground="{DynamicResource Skin.TextMuted}"
+                              TextElement.FontSize="{DynamicResource Skin.Size.Body}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Text" Property="TextElement.Foreground" Value="{DynamicResource Skin.Text}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Chip" Property="BorderBrush" Value="{DynamicResource Skin.RuleStrong}" />
+              <Setter TargetName="Text" Property="TextElement.Foreground" Value="{DynamicResource Skin.Text}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- A flat, full-width clickable row (pickers, lists): no button chrome, hover tint only. -->
+  <Style x:Key="RowButton" TargetType="Button">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bg" Background="Transparent" Padding="6,5">
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Skin.Hover}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Skin.Hover}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Sensor tables: no boxes, hairline row separators, mono numbers. -->
+  <Style x:Key="SensorGrid" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+    <Setter Property="AutoGenerateColumns" Value="False" />
+    <Setter Property="IsReadOnly" Value="True" />
+    <Setter Property="HeadersVisibility" Value="Column" />
+    <Setter Property="GridLinesVisibility" Value="Horizontal" />
+    <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource Skin.Rule}" />
+    <Setter Property="SelectionMode" Value="Single" />
+    <Setter Property="CanUserReorderColumns" Value="False" />
+    <Setter Property="CanUserResizeRows" Value="False" />
+    <Setter Property="RowHeight" Value="32" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="RowBackground" Value="Transparent" />
+    <Setter Property="AlternatingRowBackground" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource Skin.Text}" />
+    <Setter Property="FontFamily" Value="{DynamicResource Skin.Font.Body}" />
+    <Setter Property="FontSize" Value="{DynamicResource Skin.Size.Body}" />
+    <Setter Property="EnableRowVirtualization" Value="True" />
+    <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+    <Setter Property="VirtualizingPanel.IsVirtualizingWhenGrouping" Value="True" />
+    <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+    <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
+    <!-- Selection: a quiet tint in the skin's hover color (not the Windows blue), text keeps its colors. -->
+    <Setter Property="RowStyle">
+      <Setter.Value>
+        <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+          <Setter Property="Background" Value="Transparent" />
+          <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Background" Value="{DynamicResource Skin.Hover}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter Property="Background" Value="{DynamicResource Skin.Hover}" />
+            </Trigger>
+          </Style.Triggers>
+        </Style>
+      </Setter.Value>
+    </Setter>
+    <Setter Property="CellStyle">
+      <Setter.Value>
+        <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="BorderThickness" Value="0" />
+          <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+          <Setter Property="Foreground" Value="{DynamicResource Skin.Text}" />
+          <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter Property="Background" Value="Transparent" />
+              <Setter Property="BorderBrush" Value="Transparent" />
+              <Setter Property="Foreground" Value="{DynamicResource Skin.Text}" />
+            </Trigger>
+          </Style.Triggers>
+        </Style>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Group header for grouped tables and lists: small caps label over a strong hairline. -->
+  <DataTemplate x:Key="GroupHeader">
+    <Border BorderBrush="{DynamicResource Skin.RuleStrong}" BorderThickness="0,0,0,1" Margin="0,22,0,4" Padding="0,0,0,6">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="{Binding Name}" Style="{StaticResource SectionTitle}" />
+        <TextBlock Text="{Binding ItemCount}" Margin="10,0,0,0" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                   FontFamily="{DynamicResource Skin.Font.Mono}" />
+      </StackPanel>
+    </Border>
+  </DataTemplate>
+
+</ResourceDictionary>

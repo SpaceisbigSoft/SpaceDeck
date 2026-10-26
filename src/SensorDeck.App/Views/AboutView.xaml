@@ -1,0 +1,89 @@
+<UserControl x:Class="SensorDeck.App.Views.AboutView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel MaxWidth="860" HorizontalAlignment="Left" Margin="0,0,18,0">
+      <Border Style="{StaticResource Section}" Margin="0,0,0,28">
+        <StackPanel>
+          <TextBlock Text="{Binding AppVersion}" Style="{StaticResource SectionTitle}" />
+          <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap" TextTrimming="None"
+                     Text="A hardware monitor with configurable dashboards. Sensors are read by the SensorDeck collector (a Windows service); fans stay under FanControl's control." />
+          <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0">
+            <Run Text="Collector" /> <Run Text="{Binding Store.ServerVersion, Mode=OneWay, TargetNullValue='not connected'}" />
+          </TextBlock>
+          <DockPanel Margin="0,12,0,0">
+            <Button DockPanel.Dock="Right" Content="Open" Command="{Binding OpenDataFolderCommand}" Margin="10,0,0,0" />
+            <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Skin.Text}">
+              <Run Text="Your settings, dashboards and recordings: " /><Run Text="{Binding DataFolder, Mode=OneWay}" FontFamily="{DynamicResource Skin.Font.Mono}" />
+            </TextBlock>
+          </DockPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Style="{StaticResource Section}" Margin="0,0,0,28">
+        <StackPanel>
+          <TextBlock Text="License, privacy and safety" Style="{StaticResource SectionTitle}" />
+          <TextBlock Text="{Binding LicenseText, Mode=OneTime}" Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap" TextTrimming="None" />
+          <WrapPanel Margin="0,12,0,0">
+            <Button Content="License" Margin="0,0,8,8" Command="{Binding OpenDocumentCommand}" CommandParameter="LICENSE.txt" />
+            <Button Content="Third-party notices" Margin="0,0,8,8" Command="{Binding OpenDocumentCommand}" CommandParameter="THIRD-PARTY-NOTICES.txt" />
+            <Button Content="Privacy note" Margin="0,0,8,8" Command="{Binding OpenDocumentCommand}" CommandParameter="PRIVACY.txt" />
+          </WrapPanel>
+          <TextBlock Text="{Binding DocumentMessage}" Style="{StaticResource Caption}" TextWrapping="Wrap" TextTrimming="None"
+                     Visibility="{Binding DocumentMessage, Converter={StaticResource VisibleWhen}}" />
+        </StackPanel>
+      </Border>
+
+      <Border Style="{StaticResource Section}" Margin="0,0,0,28" Visibility="{Binding CanCheckForUpdates, Converter={StaticResource VisibleWhen}}">
+        <StackPanel>
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Check now" Command="{Binding CheckForUpdatesCommand}" />
+            <TextBlock Text="Updates" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+          </DockPanel>
+          <CheckBox Content="Check for a new version about once a day" IsChecked="{Binding UpdateCheckEnabled}" Margin="0,10,0,0" />
+          <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap" TextTrimming="None"
+                     Text="Off by default. The check only asks the release page for the latest version number; nothing about you or your PC is sent, and nothing is downloaded or installed." />
+          <TextBlock Text="{Binding Updates.Status}" Foreground="{DynamicResource Skin.Text}" Margin="0,10,0,0" TextWrapping="Wrap"
+                     Visibility="{Binding Updates.Status, Converter={StaticResource VisibleWhen}}" />
+          <StackPanel Margin="0,10,0,0" Visibility="{Binding Updates.Available, Converter={StaticResource VisibleWhen}}">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="Open download page" Command="{Binding OpenReleaseCommand}" />
+              <TextBlock Text="{Binding Updates.Available.Title}" Foreground="{DynamicResource Skin.Text}"
+                         FontWeight="{DynamicResource Skin.Weight.Strong}" VerticalAlignment="Center" />
+            </DockPanel>
+            <TextBlock Text="{Binding Updates.Available.Notes}" Style="{StaticResource Caption}" Margin="0,8,0,0"
+                       TextWrapping="Wrap" TextTrimming="None" MaxHeight="240" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Style="{StaticResource Section}" Margin="0,0,0,28">
+        <StackPanel>
+          <TextBlock Text="Third-party components" Style="{StaticResource SectionTitle}" />
+          <ItemsControl ItemsSource="{Binding Components}" Margin="0,8,0,0">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border BorderBrush="{DynamicResource Skin.Rule}" BorderThickness="0,0,0,1" Padding="0,8">
+                  <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Website" VerticalAlignment="Center"
+                            Command="{Binding DataContext.OpenCommand, ElementName=Root}" CommandParameter="{Binding Url}"
+                            AutomationProperties.Name="{Binding Name, StringFormat='{}{0} website'}" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding License}" VerticalAlignment="Center" Margin="12,0"
+                               FontFamily="{DynamicResource Skin.Font.Mono}" Foreground="{DynamicResource Skin.TextMuted}" />
+                    <StackPanel>
+                      <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Text}" FontWeight="{DynamicResource Skin.Weight.Strong}" />
+                      <TextBlock Text="{Binding Use}" Style="{StaticResource Caption}" TextWrapping="Wrap" TextTrimming="None" />
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap" TextTrimming="None"
+                     Text="Full license texts and source links are in THIRD-PARTY-NOTICES." />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

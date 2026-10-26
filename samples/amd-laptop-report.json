@@ -1,0 +1,384 @@
+{
+  "generatedAt": "2026-10-23T10:00:00-04:00",
+  "tool": "synthetic sample (not a real machine) — AMD laptop with integrated + NVIDIA GPU, battery, no Super I/O",
+  "hardware": [
+    {
+      "id": "lhm:/amdcpu/0",
+      "name": "AMD Ryzen 7 7840HS",
+      "kind": "Cpu",
+      "parentId": null,
+      "sensors": [
+        {
+          "id": "lhm:/amdcpu/0/temperature/0",
+          "name": "Core (Tctl/Tdie)",
+          "kind": "Temperature",
+          "unit": "°C",
+          "value": 71.5,
+          "min": 71.5,
+          "max": 71.5,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/amdcpu/0/temperature/1",
+          "name": "Core #1",
+          "kind": "Temperature",
+          "unit": "°C",
+          "value": 66.0,
+          "min": 66.0,
+          "max": 66.0,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/amdcpu/0/load/0",
+          "name": "CPU Total",
+          "kind": "Load",
+          "unit": "%",
+          "value": 23.4,
+          "min": 23.4,
+          "max": 23.4,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/amdcpu/0/load/1",
+          "name": "CPU Core #1",
+          "kind": "Load",
+          "unit": "%",
+          "value": 31.0,
+          "min": 31.0,
+          "max": 31.0,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/amdcpu/0/load/2",
+          "name": "CPU Core #2",
+          "kind": "Load",
+          "unit": "%",
+          "value": 18.0,
+          "min": 18.0,
+          "max": 18.0,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/amdcpu/0/power/0",
+          "name": "Package",
+          "kind": "Power",
+          "unit": "W",
+          "value": 28.6,
+          "min": 28.6,
+          "max": 28.6,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/amdcpu/0/power/1",
+          "name": "Core #1 (SMU)",
+          "kind": "Power",
+          "unit": "W",
+          "value": 3.1,
+          "min": 3.1,
+          "max": 3.1,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/amdcpu/0/clock/0",
+          "name": "Core #1",
+          "kind": "Clock",
+          "unit": "MHz",
+          "value": 4410,
+          "min": 4410,
+          "max": 4410,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/amdcpu/0/clock/1",
+          "name": "Core #2",
+          "kind": "Clock",
+          "unit": "MHz",
+          "value": 3980,
+          "min": 3980,
+          "max": 3980,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/amdcpu/0/voltage/0",
+          "name": "Core (SVI2 TFN)",
+          "kind": "Voltage",
+          "unit": "V",
+          "value": 1.09,
+          "min": 1.09,
+          "max": 1.09,
+          "nominalValue": null
+        }
+      ]
+    },
+    {
+      "id": "lhm:/gpu-amd/0",
+      "name": "AMD Radeon 780M",
+      "kind": "Gpu",
+      "parentId": null,
+      "sensors": [
+        {
+          "id": "lhm:/gpu-amd/0/load/0",
+          "name": "GPU Core",
+          "kind": "Load",
+          "unit": "%",
+          "value": 6.0,
+          "min": 6.0,
+          "max": 6.0,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/gpu-amd/0/power/0",
+          "name": "GPU SoC",
+          "kind": "Power",
+          "unit": "W",
+          "value": 4.2,
+          "min": 4.2,
+          "max": 4.2,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/gpu-amd/0/clock/0",
+          "name": "GPU Core",
+          "kind": "Clock",
+          "unit": "MHz",
+          "value": 800,
+          "min": 800,
+          "max": 800,
+          "nominalValue": null
+        }
+      ]
+    },
+    {
+      "id": "lhm:/gpu-nvidia/0",
+      "name": "NVIDIA GeForce RTX 4060 Laptop GPU",
+      "kind": "Gpu",
+      "parentId": null,
+      "sensors": [
+        {
+          "id": "lhm:/gpu-nvidia/0/temperature/0",
+          "name": "GPU Core",
+          "kind": "Temperature",
+          "unit": "°C",
+          "value": 62.0,
+          "min": 62.0,
+          "max": 62.0,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/gpu-nvidia/0/temperature/2",
+          "name": "GPU Hot Spot",
+          "kind": "Temperature",
+          "unit": "°C",
+          "value": 74.5,
+          "min": 74.5,
+          "max": 74.5,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/gpu-nvidia/0/load/0",
+          "name": "GPU Core",
+          "kind": "Load",
+          "unit": "%",
+          "value": 38.0,
+          "min": 38.0,
+          "max": 38.0,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/gpu-nvidia/0/load/1",
+          "name": "GPU Memory Controller",
+          "kind": "Load",
+          "unit": "%",
+          "value": 21.0,
+          "min": 21.0,
+          "max": 21.0,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/gpu-nvidia/0/power/0",
+          "name": "GPU Package",
+          "kind": "Power",
+          "unit": "W",
+          "value": 46.3,
+          "min": 46.3,
+          "max": 46.3,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/gpu-nvidia/0/clock/0",
+          "name": "GPU Core",
+          "kind": "Clock",
+          "unit": "MHz",
+          "value": 1830,
+          "min": 1830,
+          "max": 1830,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/gpu-nvidia/0/clock/4",
+          "name": "GPU Memory",
+          "kind": "Clock",
+          "unit": "MHz",
+          "value": 8001,
+          "min": 8001,
+          "max": 8001,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/gpu-nvidia/0/smalldata/1",
+          "name": "GPU Memory Total",
+          "kind": "SmallData",
+          "unit": "MB",
+          "value": 8188,
+          "min": 8188,
+          "max": 8188,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/gpu-nvidia/0/smalldata/2",
+          "name": "GPU Memory Used",
+          "kind": "SmallData",
+          "unit": "MB",
+          "value": 2310,
+          "min": 2310,
+          "max": 2310,
+          "nominalValue": null
+        }
+      ]
+    },
+    {
+      "id": "lhm:/ram",
+      "name": "Generic Memory",
+      "kind": "Memory",
+      "parentId": null,
+      "sensors": [
+        {
+          "id": "lhm:/ram/load/0",
+          "name": "Memory",
+          "kind": "Load",
+          "unit": "%",
+          "value": 54.0,
+          "min": 54.0,
+          "max": 54.0,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/ram/data/0",
+          "name": "Memory Used",
+          "kind": "Data",
+          "unit": "GB",
+          "value": 16.9,
+          "min": 16.9,
+          "max": 16.9,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/ram/data/1",
+          "name": "Memory Available",
+          "kind": "Data",
+          "unit": "GB",
+          "value": 14.2,
+          "min": 14.2,
+          "max": 14.2,
+          "nominalValue": null
+        }
+      ]
+    },
+    {
+      "id": "lhm:/battery/0",
+      "name": "Primary Battery",
+      "kind": "Battery",
+      "parentId": null,
+      "sensors": [
+        {
+          "id": "lhm:/battery/0/level/0",
+          "name": "Charge Level",
+          "kind": "Level",
+          "unit": "%",
+          "value": 82.0,
+          "min": 82.0,
+          "max": 82.0,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/battery/0/level/1",
+          "name": "Degradation Level",
+          "kind": "Level",
+          "unit": "%",
+          "value": 6.3,
+          "min": 6.3,
+          "max": 6.3,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/battery/0/voltage/0",
+          "name": "Voltage",
+          "kind": "Voltage",
+          "unit": "V",
+          "value": 16.4,
+          "min": 16.4,
+          "max": 16.4,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/battery/0/power/0",
+          "name": "Discharge Rate",
+          "kind": "Power",
+          "unit": "W",
+          "value": 31.8,
+          "min": 31.8,
+          "max": 31.8,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/battery/0/energy/0",
+          "name": "Remaining Capacity",
+          "kind": "Energy",
+          "unit": "mWh",
+          "value": 61450,
+          "min": 61450,
+          "max": 61450,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/battery/0/timespan/0",
+          "name": "Remaining Time (Estimated)",
+          "kind": "TimeSpan",
+          "unit": "s",
+          "value": 6950,
+          "min": 6950,
+          "max": 6950,
+          "nominalValue": null
+        }
+      ]
+    },
+    {
+      "id": "lhm:/nvme/0",
+      "name": "Samsung SSD 980 1TB",
+      "kind": "Storage",
+      "parentId": null,
+      "sensors": [
+        {
+          "id": "lhm:/nvme/0/temperature/0",
+          "name": "Composite Temperature",
+          "kind": "Temperature",
+          "unit": "°C",
+          "value": 44.0,
+          "min": 44.0,
+          "max": 44.0,
+          "nominalValue": null
+        },
+        {
+          "id": "lhm:/nvme/0/load/0",
+          "name": "Used Space",
+          "kind": "Load",
+          "unit": "%",
+          "value": 61.0,
+          "min": 61.0,
+          "max": 61.0,
+          "nominalValue": null
+        }
+      ]
+    }
+  ]
+}

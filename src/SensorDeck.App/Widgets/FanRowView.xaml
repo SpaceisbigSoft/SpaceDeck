@@ -1,0 +1,32 @@
+<UserControl x:Class="SensorDeck.App.Widgets.FanRowView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:SensorDeck.App.Controls"
+             x:Name="Root">
+  <!-- One fan/pump header: name · RPM · duty line (what FanControl is driving it at) · duty %. -->
+  <Grid Margin="0,6" x:Name="RowGrid">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*" MinWidth="90" />
+      <ColumnDefinition Width="64" />
+      <ColumnDefinition Width="{Binding BarWidth, ElementName=Root}" />
+      <ColumnDefinition Width="52" />
+    </Grid.ColumnDefinitions>
+    <TextBlock Text="{Binding Row.Name, ElementName=Root}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+               FontFamily="{DynamicResource Skin.Font.Body}" FontSize="{DynamicResource Skin.Size.Body}"
+               Foreground="{DynamicResource Skin.TextMuted}" />
+    <TextBlock Grid.Column="1" Text="{Binding Row.Fan.DisplayNumber, ElementName=Root}" VerticalAlignment="Center"
+               HorizontalAlignment="Right" Margin="12,0,0,0" MinWidth="48" TextAlignment="Right"
+               FontFamily="{DynamicResource Skin.Font.Mono}" FontSize="{DynamicResource Skin.Size.Body}"
+               Foreground="{DynamicResource Skin.Text}" />
+    <c:ValueBar Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Center"
+                Value="{Binding Row.Duty.Value, ElementName=Root, Converter={StaticResource ToDouble}, FallbackValue=NaN}"
+                Maximum="100" Thickness="{DynamicResource Skin.BarThickness}"
+                Track="{DynamicResource Skin.Track}" Fill="{DynamicResource Skin.Fill}"
+                Visibility="{Binding Row.HasDuty, ElementName=Root, Converter={StaticResource VisibleWhen}}" />
+    <TextBlock Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right" MinWidth="44" TextAlignment="Right"
+               Margin="10,0,0,0"
+               Text="{Binding Row.Duty.DisplayNumber, ElementName=Root, StringFormat='{}{0}%', FallbackValue=''}"
+               FontFamily="{DynamicResource Skin.Font.Mono}" FontSize="{DynamicResource Skin.Size.Small}"
+               Foreground="{DynamicResource Skin.TextMuted}" />
+  </Grid>
+</UserControl>
