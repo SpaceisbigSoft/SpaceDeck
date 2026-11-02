@@ -38,5 +38,5 @@ Desktop.ini
 .DS_Store
 
 # Local diagnostics dumps
-sensordeck-dump*.json
+spacedeck-dump*.json
 usb-captures/

@@ -1,21 +1,21 @@
-# SensorDeck — Phase 12 test plan
+# SpaceDeck — Phase 12 test plan
 
 Work through the sections in order; tick each box or note what happened. Use the latest Release build
-(`dotnet build SensorDeck.slnx -c Release`) and the installed collector service (`scripts\Install-Collector.ps1`).
+(`dotnet build SpaceDeck.slnx -c Release`) and the installed collector service (`scripts\Install-Collector.ps1`).
 "Expected" is what should happen; anything else is a bug to report (a screenshot helps).
 
 ## A. Automated tests
 - [x] `dotnet test` — all pass (202/202, 2026-10-23).
 
 ## B. Fresh profile (first run)
-1. Exit SensorDeck. Rename `%AppData%\SensorDeck` to `SensorDeck.bak`.
-2. Start SensorDeck.
+1. Exit SpaceDeck. Rename `%AppData%\SpaceDeck` to `SpaceDeck.bak`.
+2. Start SpaceDeck.
 - [x] Opens on Diagnostics with the welcome box; checks are green/notes except things genuinely missing.
 - [x] "Looks good" → a default dashboard built from your hardware; default alert rules on the Alerts page.
-3. Exit, delete the new `%AppData%\SensorDeck`, rename `SensorDeck.bak` back. Start again: everything as before.
+3. Exit, delete the new `%AppData%\SpaceDeck`, rename `SpaceDeck.bak` back. Start again: everything as before.
 
 ## C. Collector robustness (app keeps running throughout)
-- [x] Restart the service (elevated: `Restart-Service SensorDeckCollector`): banner "Connecting…", then live again within ~5 s; history charts continue.
+- [x] Restart the service (elevated: `Restart-Service SpaceDeckCollector`): banner "Connecting…", then live again within ~5 s; history charts continue.
 - [x] Stop the service: banner "collector service is stopped" with **Start service**; clicking it (UAC) brings data back.
 - [x] Sleep the PC for a few minutes and wake it: values resume, no error dialogs, no stuck "Connecting…".
 - [x] Reboot: service starts by itself; app (if "start with Windows" is on) starts in the tray and is live.
@@ -50,22 +50,22 @@ Dark HUD, Nord, Dracula, Gruvbox, Cyberpunk, Synthwave, Red Team, OLED black, Pa
 - [ ] Turning the feature off stops the page within a few seconds.
 
 ## H. Replay, backup, updates (Phase 18)
-- [ ] Record a 1-minute replay; open it; loops; separate window/profile; closing leaves no extra SensorDeck.Collector process.
+- [ ] Record a 1-minute replay; open it; loops; separate window/profile; closing leaves no extra SpaceDeck.Collector process.
 - [ ] `samples\amd-laptop-report.json` replay: AMD/NVIDIA/battery default dashboard, laptop alert limits.
 - [x] Save backup → change something → restore → restarts with the change undone; phone stays paired.
-- [ ] `sensordeck-cli diff` on two hardware reports.
+- [ ] `spacedeck-cli diff` on two hardware reports.
 
 ## I. Without admin / without PawnIO (optional, informative)
 - [ ] Run the collector from a normal (non-admin) terminal on another pipe:
-      `src\SensorDeck.Collector\bin\Release\net10.0-windows\SensorDeck.Collector.exe --pipe SensorDeck-test` and
-      `sensordeck-cli connect --pipe SensorDeck-test`: source status says "not elevated"; fewer sensors; nothing crashes.
+      `src\SpaceDeck.Collector\bin\Release\net10.0-windows\SpaceDeck.Collector.exe --pipe SpaceDeck-test` and
+      `spacedeck-cli connect --pipe SpaceDeck-test`: source status says "not elevated"; fewer sensors; nothing crashes.
 
 ## J. 24-hour soak
 1. Normal use for a day with a dashboard window or sidebar open and the main window in the tray.
 2. In PowerShell (elevated, to include the service):
    `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Soak-Monitor.ps1 -Hours 24`
-- [ ] `Desktop\sensordeck-soak.csv`: memory and handles flat (no steady climb); collector CPU < 1 %, app < 2 % on average at a 1 s poll interval (column `cpu_percent`, share of the whole machine; `cpu_one_core_percent` is the same as a share of one core). GDI/USER objects of the app flat. The script warns when it isn't elevated or can't read the collector: no collector rows means the run doesn't count.
-- [ ] Disk: `%ProgramData%\SensorDeck\history` stays under its cap; logs under 100 MB.
+- [ ] `Desktop\spacedeck-soak.csv`: memory and handles flat (no steady climb); collector CPU < 1 %, app < 2 % on average at a 1 s poll interval (column `cpu_percent`, share of the whole machine; `cpu_one_core_percent` is the same as a share of one core). GDI/USER objects of the app flat. The script warns when it isn't elevated or can't read the collector: no collector rows means the run doesn't count.
+- [ ] Disk: `%ProgramData%\SpaceDeck\history` stays under its cap; logs under 100 MB.
 
 ## Not testable here (noted for the release notes)
 - Other hardware (AMD CPUs/GPUs, ITE/Fintek boards, laptops): covered by replay of hardware reports; real-world reports welcome.

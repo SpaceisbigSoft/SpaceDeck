@@ -8,8 +8,8 @@
     <!-- Vulnerability advisories in transitive packages (from LHM) shouldn't break Release; they still show as warnings. -->
     <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
     <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
-    <Company>SensorDeck</Company>
-    <Product>SensorDeck</Product>
+    <Company>SpaceDeck</Company>
+    <Product>SpaceDeck</Product>
     <Version>0.1.0</Version>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>

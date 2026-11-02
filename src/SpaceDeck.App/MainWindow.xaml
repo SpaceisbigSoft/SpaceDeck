@@ -1,0 +1,127 @@
+<Window x:Class="SpaceDeck.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:SpaceDeck.App.ViewModels"
+        xmlns:views="clr-namespace:SpaceDeck.App.Views"
+        Title="SpaceDeck"
+        Width="1320" Height="860" MinWidth="960" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Skin.Background}"
+        Foreground="{DynamicResource Skin.Text}"
+        FontFamily="{DynamicResource Skin.Font.Body}">
+
+  <Window.Resources>
+    <!-- Each page view model renders with its view. -->
+    <DataTemplate DataType="{x:Type vm:DashboardViewModel}"><views:DashboardView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:SensorsViewModel}"><views:SensorsView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:VoltagesViewModel}"><views:VoltagesView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:FansViewModel}"><views:FansView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:HistoryViewModel}"><views:HistoryView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:AlertsViewModel}"><views:AlertsView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:SettingsViewModel}"><views:SettingsView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:AutomationViewModel}"><views:AutomationView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:RecordingsViewModel}"><views:RecordingsView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:DiagnosticsViewModel}"><views:DiagnosticsView /></DataTemplate>
+    <DataTemplate DataType="{x:Type vm:AboutViewModel}"><views:AboutView /></DataTemplate>
+  </Window.Resources>
+
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="208" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+
+    <!-- ── Navigation: plain text, hairline divider ───────────────── -->
+    <Border Grid.Column="0" Background="{DynamicResource Skin.Surface}" BorderBrush="{DynamicResource Skin.Rule}" BorderThickness="0,0,1,0">
+      <DockPanel Margin="28,30,20,24">
+        <TextBlock DockPanel.Dock="Top" Text="SpaceDeck" FontSize="15" FontWeight="{DynamicResource Skin.Weight.Strong}"
+                   Foreground="{DynamicResource Skin.Text}" Margin="0,0,0,28" />
+
+        <!-- Connection status, pinned to the bottom. -->
+        <StackPanel DockPanel.Dock="Bottom">
+          <StackPanel Orientation="Horizontal">
+            <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                     Fill="{Binding Store.ConnectionState, Converter={StaticResource ConnectionStateToBrush}}" />
+            <TextBlock Text="{Binding ConnectionText}" Margin="8,0,0,0" Style="{StaticResource Caption}" />
+          </StackPanel>
+          <TextBlock Margin="14,4,0,0" Style="{StaticResource Caption}" FontFamily="{DynamicResource Skin.Font.Mono}"
+                     Text="{Binding Store.LastUpdate, Converter={StaticResource TimeText}, ConverterParameter=seconds}" />
+        </StackPanel>
+
+        <ListBox ItemsSource="{Binding NavItems}" SelectedItem="{Binding SelectedNav}"
+                 ItemContainerStyle="{StaticResource NavItemStyle}"
+                 Background="Transparent" BorderThickness="0" Padding="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding Title}" FontSize="14" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <!-- ── Content ────────────────────────────────────────────────── -->
+    <Grid Grid.Column="1">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <!-- Header: page title + fan profile picker (accent = the one interactive control here). -->
+      <Grid Grid.Row="0" Margin="40,26,40,14">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Text="{Binding SelectedNav.Title}" Style="{StaticResource PageTitle}" VerticalAlignment="Bottom" />
+
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+          <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
+            <TextBlock Text="Fan profile" Style="{StaticResource Caption}" HorizontalAlignment="Right" />
+            <TextBlock Text="{Binding FanProfileStatus}" Style="{StaticResource Caption}" HorizontalAlignment="Right"
+                       MaxWidth="280" Foreground="{DynamicResource Skin.TextFaint}"
+                       Visibility="{Binding FanProfileStatus, Converter={StaticResource VisibleWhen}}" />
+          </StackPanel>
+          <Grid Width="190">
+            <ComboBox ItemsSource="{Binding FanProfiles}" SelectedItem="{Binding SelectedFanProfile}"
+                      IsEnabled="{Binding FanControlAvailable}" DropDownOpened="FanProfiles_DropDownOpened"
+                      Foreground="{DynamicResource Skin.Accent}" FontWeight="{DynamicResource Skin.Weight.Strong}"
+                      AutomationProperties.Name="Fan profile"
+                      ToolTip="Switches FanControl to this saved configuration. FanControl stays in control of the fans. (FanControl doesn't report its active config, so this shows the last one SpaceDeck switched to.)" />
+            <!-- Hint until a profile has been chosen from SpaceDeck. -->
+            <TextBlock Text="Choose…" Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                       Style="{StaticResource Caption}" FontSize="{DynamicResource Skin.Size.Body}"
+                       Visibility="{Binding SelectedFanProfile, Converter={StaticResource VisibleWhen}, ConverterParameter=invert}" />
+          </Grid>
+        </StackPanel>
+      </Grid>
+
+      <!-- Problem banner (collector offline, PawnIO missing…): accent rule + text, no box. -->
+      <Border Grid.Row="1" Margin="40,0,40,12" Padding="0,10,0,10" BorderThickness="0,1,0,1"
+              BorderBrush="{DynamicResource Skin.Rule}"
+              Visibility="{Binding ShowBanner, Converter={StaticResource VisibleWhen}}">
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Content="{Binding BannerActionText}" Command="{Binding BannerActionCommand}"
+                  Margin="16,0,0,0" Visibility="{Binding BannerActionText, Converter={StaticResource VisibleWhen}}" />
+          <Border Width="12" Height="2" VerticalAlignment="Center" Margin="0,0,12,0">
+            <Border.Style>
+              <Style TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource Skin.TextFaint}" />
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding BannerIsError}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Skin.Critical}" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Border.Style>
+          </Border>
+          <TextBlock Text="{Binding BannerText}" TextWrapping="Wrap" VerticalAlignment="Center" Style="{StaticResource Body}" />
+        </DockPanel>
+      </Border>
+
+      <ContentControl Grid.Row="2" Content="{Binding SelectedNav.Page}" Margin="40,0,40,28" Focusable="False" />
+    </Grid>
+  </Grid>
+</Window>

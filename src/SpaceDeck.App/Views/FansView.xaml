@@ -1,0 +1,34 @@
+<UserControl x:Class="SpaceDeck.App.Views.FansView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:w="clr-namespace:SpaceDeck.App.Widgets">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,6" MaxWidth="900" HorizontalAlignment="Left"
+               Text="Read-only: FanControl drives the fans and pump. The line shows the duty FanControl is applying; switch FanControl configs with the Fan profile picker. Lian Li wireless fans aren't listed because FanControl.LianLi owns that device." />
+
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <!-- Right margin: Fluent scrollbars overlay content; keep rows clear of them. -->
+      <Grid Margin="0,0,18,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" MaxWidth="900" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <ItemsControl ItemsSource="{Binding View}" Focusable="False">
+        <ItemsControl.GroupStyle>
+          <GroupStyle HeaderTemplate="{StaticResource GroupHeader}" />
+        </ItemsControl.GroupStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <w:FanRowView Row="{Binding}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      </Grid>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

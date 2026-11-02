@@ -1,16 +1,16 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Stops and removes the SensorDeck collector service and its installed files.
-    Settings and logs in %ProgramData%\SensorDeck are kept unless -RemoveData is given.
+    Stops and removes the SpaceDeck collector service and its installed files.
+    Settings and logs in %ProgramData%\SpaceDeck are kept unless -RemoveData is given.
 #>
 param(
-    [string]$InstallDir = (Join-Path $env:ProgramFiles "SensorDeck\Collector"),
+    [string]$InstallDir = (Join-Path $env:ProgramFiles "SpaceDeck\Collector"),
     [switch]$RemoveData
 )
 
 $ErrorActionPreference = "Stop"
-$serviceName = "SensorDeckCollector"
+$serviceName = "SpaceDeckCollector"
 
 # Deletes junctions, symbolic links and mount points under $Path without following them. Windows PowerShell 5.1's
 # Remove-Item -Recurse follows junctions, so a planted link would otherwise make it delete files elsewhere.
@@ -60,7 +60,7 @@ if (Test-Path -LiteralPath $InstallDir) {
 }
 
 if ($RemoveData) {
-    $data = Join-Path $env:ProgramData "SensorDeck"
+    $data = Join-Path $env:ProgramData "SpaceDeck"
     if (Test-Path -LiteralPath $data) {
         Write-Host "Removing $data..."
         Remove-Folder $data

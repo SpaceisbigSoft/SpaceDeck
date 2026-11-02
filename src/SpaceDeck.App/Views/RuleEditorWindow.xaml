@@ -1,0 +1,97 @@
+<Window x:Class="SpaceDeck.App.Views.RuleEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding Title}" Width="520" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Skin.Background}" Foreground="{DynamicResource Skin.Text}"
+        FontFamily="{DynamicResource Skin.Font.Body}">
+  <Window.Resources>
+    <Style x:Key="Label" TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+      <Setter Property="Margin" Value="0,16,0,4" />
+    </Style>
+  </Window.Resources>
+  <StackPanel Margin="24,20,24,20">
+    <TextBlock Text="{Binding Title}" Style="{StaticResource SectionTitle}" FontSize="15" />
+
+    <TextBlock Text="When" Style="{StaticResource Label}" />
+    <ComboBox ItemsSource="{Binding Triggers}" SelectedItem="{Binding SelectedTrigger}" DisplayMemberPath="Label"
+              AutomationProperties.Name="Trigger" />
+
+    <!-- Program -->
+    <StackPanel Visibility="{Binding IsProcess, Converter={StaticResource VisibleWhen}}">
+      <TextBlock Text="Programs (any of them; separate with commas)" Style="{StaticResource Label}" />
+      <TextBox Text="{Binding ProcessText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Program names" />
+      <TextBlock Text="…or pick one that's running now" Style="{StaticResource Label}" Margin="0,10,0,4" />
+      <ComboBox ItemsSource="{Binding RunningApps}" SelectedItem="{Binding SelectedRunningApp}" IsTextSearchEnabled="True"
+                AutomationProperties.Name="Running programs">
+        <ComboBox.ItemsPanel>
+          <ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate>
+        </ComboBox.ItemsPanel>
+      </ComboBox>
+    </StackPanel>
+
+    <!-- Sensor -->
+    <StackPanel Visibility="{Binding IsSensor, Converter={StaticResource VisibleWhen}}">
+      <TextBlock Text="Sensor (type to search)" Style="{StaticResource Label}" />
+      <ComboBox ItemsSource="{Binding Sensors}" SelectedItem="{Binding SelectedSensor}" IsEditable="True" IsTextSearchEnabled="True"
+                TextSearch.TextPath="Name" MaxDropDownHeight="360" AutomationProperties.Name="Sensor">
+        <ComboBox.ItemsPanel>
+          <ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate>
+        </ComboBox.ItemsPanel>
+        <ComboBox.ItemTemplate>
+          <DataTemplate>
+            <StackPanel>
+              <TextBlock Text="{Binding Name}" />
+              <TextBlock Text="{Binding GroupName}" FontSize="11" Opacity="0.7" />
+            </StackPanel>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
+      <TextBlock Text="{Binding CurrentValueText}" Style="{StaticResource Caption}" Margin="0,4,0,0" />
+      <Grid Margin="0,12,0,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="110" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="80" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Text="Value" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <TextBox Grid.Column="1" Text="{Binding ThresholdText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Threshold" />
+        <TextBlock Grid.Column="2" Text="{Binding UnitText}" VerticalAlignment="Center" Margin="6,0,20,0" />
+        <TextBlock Grid.Column="3" Text="for" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <TextBox Grid.Column="4" Text="{Binding ForSecondsText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Seconds" />
+        <TextBlock Grid.Column="5" Text="seconds" VerticalAlignment="Center" Margin="6,0,0,0" />
+      </Grid>
+      <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap" TextTrimming="None" Foreground="{DynamicResource Skin.TextFaint}"
+                 Text="The reading must stay past the value this long to turn the rule on, and stay back this long to turn it off." />
+    </StackPanel>
+
+    <!-- Time -->
+    <StackPanel Visibility="{Binding IsTime, Converter={StaticResource VisibleWhen}}">
+      <TextBlock Text="Between (24-hour, may cross midnight)" Style="{StaticResource Label}" />
+      <StackPanel Orientation="Horizontal">
+        <TextBox Text="{Binding FromText, UpdateSourceTrigger=PropertyChanged}" Width="90" Padding="8,5" AutomationProperties.Name="From time" />
+        <TextBlock Text="and" VerticalAlignment="Center" Margin="10,0" />
+        <TextBox Text="{Binding ToText, UpdateSourceTrigger=PropertyChanged}" Width="90" Padding="8,5" AutomationProperties.Name="To time" />
+      </StackPanel>
+    </StackPanel>
+
+    <TextBlock Text="Switch FanControl to" Style="{StaticResource Label}" />
+    <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" AutomationProperties.Name="FanControl config" />
+
+    <CheckBox Content="Also record a session while this rule is active (Recordings page)" IsChecked="{Binding Record}" Margin="0,14,0,0" />
+
+    <TextBlock Text="Name (optional)" Style="{StaticResource Label}" />
+    <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Rule name" />
+
+    <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Skin.Critical}" Margin="0,12,0,0" TextWrapping="Wrap"
+               Visibility="{Binding Error, Converter={StaticResource VisibleWhen}}" />
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+      <Button Content="Save" IsDefault="True" Padding="18,6" Command="{Binding SaveCommand}" Style="{DynamicResource AccentButtonStyle}" />
+      <Button Content="Cancel" IsCancel="True" Padding="18,6" Margin="10,0,0,0" />
+    </StackPanel>
+  </StackPanel>
+</Window>

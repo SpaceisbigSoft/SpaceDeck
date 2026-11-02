@@ -1,0 +1,46 @@
+<Window x:Class="SpaceDeck.App.Views.SidebarWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:SpaceDeck.App.Views"
+        Title="SpaceDeck sidebar"
+        Width="270" Height="600" ShowInTaskbar="False" Topmost="True" ShowActivated="False"
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="NoResize"
+        Background="{DynamicResource Skin.Background}" Foreground="{DynamicResource Skin.Text}"
+        FontFamily="{DynamicResource Skin.Font.Body}">
+  <!--
+    A dashboard docked to a monitor edge (Settings → Sidebar). SidebarService positions it; with "Reserve screen
+    space" Windows treats it like a second taskbar. Right-click for options.
+  -->
+  <Window.ContextMenu>
+    <ContextMenu Opened="Menu_Opened">
+      <MenuItem x:Name="DashboardsMenu" Header="Dashboard" />
+      <MenuItem x:Name="MonitorsMenu" Header="Monitor" />
+      <MenuItem x:Name="LeftItem" Header="Left edge" IsCheckable="True" Click="Left_Click" />
+      <MenuItem x:Name="RightItem" Header="Right edge" IsCheckable="True" Click="Right_Click" />
+      <MenuItem Header="Width">
+        <MenuItem Header="Narrow (2 columns)" Tag="2" Click="Width_Click" />
+        <MenuItem Header="Normal (3 columns)" Tag="3" Click="Width_Click" />
+        <MenuItem Header="Wide (4 columns)" Tag="4" Click="Width_Click" />
+        <MenuItem Header="Extra wide (6 columns)" Tag="6" Click="Width_Click" />
+      </MenuItem>
+      <Separator />
+      <MenuItem x:Name="ReserveItem" Header="Reserve screen space" IsCheckable="True" Click="Reserve_Click" />
+      <MenuItem x:Name="FullscreenItem" Header="Hide while a game or video is fullscreen" IsCheckable="True" Click="Fullscreen_Click" />
+      <MenuItem Header="Opacity">
+        <MenuItem Header="100 %" Tag="1" Click="Opacity_Click" />
+        <MenuItem Header="90 %" Tag="0.9" Click="Opacity_Click" />
+        <MenuItem Header="75 %" Tag="0.75" Click="Opacity_Click" />
+        <MenuItem Header="60 %" Tag="0.6" Click="Opacity_Click" />
+      </MenuItem>
+      <!-- Filled in code (ContentSize.FillMenu): fit to height, smaller, larger, 100 %. -->
+      <MenuItem x:Name="SizeMenu" Header="Size" />
+      <Separator />
+      <MenuItem Header="Hide sidebar" Click="Hide_Click" />
+    </ContextMenu>
+  </Window.ContextMenu>
+  <Window.Resources>
+    <!-- No divider lines between the stacked sections; spacing alone separates them. -->
+    <Thickness x:Key="Skin.Card.BorderThickness">0</Thickness>
+  </Window.Resources>
+  <v:DashboardCanvas x:Name="DashCanvas" IsEditable="False" Stacked="True" RowMenus="False" Margin="10,4,0,0" />
+</Window>

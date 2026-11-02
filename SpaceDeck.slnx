@@ -1,0 +1,24 @@
+<Solution>
+  <Folder Name="/docs/">
+    <File Path="docs/HANDOFF.md" />
+    <File Path="docs/PLAN.md" />
+    <File Path="docs/PROTOCOL.md" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/SpaceDeck.Core/SpaceDeck.Core.csproj" />
+    <Project Path="src/SpaceDeck.Sources.Lhm/SpaceDeck.Sources.Lhm.csproj" />
+    <Project Path="src/SpaceDeck.Integrations.FanControl/SpaceDeck.Integrations.FanControl.csproj" />
+    <Project Path="src/SpaceDeck.Collector/SpaceDeck.Collector.csproj" />
+    <Project Path="src/SpaceDeck.App/SpaceDeck.App.csproj" />
+    <Project Path="src/SpaceDeck.Cli/SpaceDeck.Cli.csproj" />
+  </Folder>
+  <Folder Name="/scripts/">
+    <File Path="scripts/Install-Collector.ps1" />
+    <File Path="scripts/Uninstall-Collector.ps1" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SpaceDeck.Core.Tests/SpaceDeck.Core.Tests.csproj" />
+    <Project Path="tests/SpaceDeck.Collector.Tests/SpaceDeck.Collector.Tests.csproj" />
+  </Folder>
+</Solution>

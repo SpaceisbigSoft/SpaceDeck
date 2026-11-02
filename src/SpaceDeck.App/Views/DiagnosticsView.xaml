@@ -1,0 +1,96 @@
+<UserControl x:Class="SpaceDeck.App.Views.DiagnosticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel MaxWidth="860" HorizontalAlignment="Left" Margin="0,0,18,0">
+
+      <!-- First-run welcome -->
+      <Border Style="{StaticResource Section}" Margin="0,0,0,28"
+              Visibility="{Binding IsFirstRun, Converter={StaticResource VisibleWhen}}">
+        <StackPanel>
+          <TextBlock Text="Welcome to SpaceDeck" Style="{StaticResource SectionTitle}" />
+          <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap" TextTrimming="None"
+                     Text="SpaceDeck has two parts: a small background collector (a Windows service that reads your hardware through the PawnIO driver) and this app. The checklist below shows what's in place. Fix anything marked Problem, then continue — you can come back to this page any time from Diagnostics." />
+          <Button Content="Looks good, show my dashboard" HorizontalAlignment="Left" Margin="0,14,0,0" Padding="16,6"
+                  Style="{DynamicResource AccentButtonStyle}" Command="{Binding FinishSetupCommand}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Checks -->
+      <Border Style="{StaticResource Section}" Margin="0,0,0,28">
+        <StackPanel>
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Check again" Command="{Binding RefreshCommand}" />
+            <TextBlock Text="Setup checks" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+          </DockPanel>
+          <TextBlock Text="{Binding Summary}" Foreground="{DynamicResource Skin.Text}" Margin="0,10,0,4" TextWrapping="Wrap" />
+          <ItemsControl ItemsSource="{Binding Checks}" Margin="0,6,0,0">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border BorderBrush="{DynamicResource Skin.Rule}" BorderThickness="0,0,0,1" Padding="0,10">
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="76" />
+                      <ColumnDefinition Width="190" />
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                      <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"
+                               Fill="{Binding State, Converter={StaticResource StatusToBrush}}" />
+                      <TextBlock Text="{Binding StateText}" FontSize="{DynamicResource Skin.Size.Small}"
+                                 Foreground="{Binding State, Converter={StaticResource StatusToBrush}}" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding Title}" Foreground="{DynamicResource Skin.Text}"
+                               Margin="0,0,12,0" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="2" Text="{Binding Detail}" Style="{StaticResource Caption}"
+                               TextWrapping="Wrap" TextTrimming="None" Margin="0,0,12,0" />
+                    <Button Grid.Column="3" VerticalAlignment="Top" Content="{Binding ActionText}" Command="{Binding Action}"
+                            Visibility="{Binding HasAction, Converter={StaticResource VisibleWhen}}" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="{Binding Message}" Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap" TextTrimming="None"
+                     Visibility="{Binding Message, Converter={StaticResource VisibleWhen}}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Reports -->
+      <Border Style="{StaticResource Section}" Margin="0,0,0,28">
+        <StackPanel>
+          <TextBlock Text="Reports and logs" Style="{StaticResource SectionTitle}" />
+          <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap" TextTrimming="None"
+                     Text="A hardware report lists every sensor's id, name, kind and current raw value. It helps add support for boards SpaceDeck doesn't name well yet, and contains no personal files." />
+          <WrapPanel Margin="0,12,0,0">
+            <Button Content="Copy diagnostics" Margin="0,0,8,8" Command="{Binding CopyDiagnosticsCommand}" />
+            <Button Content="Save hardware report…" Margin="0,0,8,8" Command="{Binding SaveHardwareReportCommand}" />
+            <Button Content="Open collector logs" Margin="0,0,8,8" Command="{Binding OpenCollectorLogsCommand}" />
+            <Button Content="Open settings folder" Margin="0,0,8,8" Command="{Binding OpenAppDataCommand}" />
+          </WrapPanel>
+          <TextBlock Text="{Binding ReportMessage}" Style="{StaticResource Caption}" Margin="0,2,0,6" TextWrapping="Wrap" TextTrimming="None"
+                     Visibility="{Binding ReportMessage, Converter={StaticResource VisibleWhen}}" />
+          <TextBlock Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap" TextTrimming="None">
+            <Run Text="App" /> <Run Text="{Binding AppVersionText, Mode=OneTime}" />
+          </TextBlock>
+        </StackPanel>
+      </Border>
+
+      <!-- Replay / demo -->
+      <Border Style="{StaticResource Section}" Margin="0,0,0,28">
+        <StackPanel>
+          <TextBlock Text="Replay and demo" Style="{StaticResource SectionTitle}" />
+          <TextBlock Text="{Binding ReplayDescription, Mode=OneTime}" Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap" TextTrimming="None" />
+          <WrapPanel Margin="0,12,0,0" Visibility="{Binding IsReplay, Converter={StaticResource VisibleWhen}, ConverterParameter=invert}">
+            <Button Content="{Binding RecordButtonText}" Margin="0,0,8,8" Command="{Binding ToggleRecordingCommand}" />
+            <Button Content="Open replay…" Margin="0,0,8,8" Command="{Binding OpenReplayCommand}" />
+            <Button Content="Open recordings folder" Margin="0,0,8,8" Command="{Binding OpenReplaysFolderCommand}" />
+          </WrapPanel>
+          <TextBlock Text="{Binding ReplayMessage}" Style="{StaticResource Caption}" Margin="0,2,0,0" TextWrapping="Wrap" TextTrimming="None"
+                     Visibility="{Binding ReplayMessage, Converter={StaticResource VisibleWhen}}" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

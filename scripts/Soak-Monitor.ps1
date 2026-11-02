@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-    Logs CPU, memory and handle counts of the SensorDeck app and collector once a minute (Phase 12 soak test).
+    Logs CPU, memory and handle counts of the SpaceDeck app and collector once a minute (Phase 12 soak test).
 
 .DESCRIPTION
-    Leave it running (e.g. 24 hours) while SensorDeck is in normal use, then look at the CSV:
+    Leave it running (e.g. 24 hours) while SpaceDeck is in normal use, then look at the CSV:
     memory, handles and GDI/USER objects should stay flat, CPU within the targets (collector < 1 %, app < 2 % idle at
     1 s polling, as cpu_percent).
     Run it in an elevated PowerShell window: the collector runs as SYSTEM, and an unelevated window usually can't read
@@ -23,12 +23,12 @@
 param(
     [double]$Hours = 24,
     [int]$IntervalSeconds = 60,
-    [string]$OutFile = (Join-Path ([Environment]::GetFolderPath("Desktop")) "sensordeck-soak.csv")
+    [string]$OutFile = (Join-Path ([Environment]::GetFolderPath("Desktop")) "spacedeck-soak.csv")
 )
 
 $ErrorActionPreference = "Stop"
-$appName = "SensorDeck"
-$names = @($appName, "SensorDeck.Collector")
+$appName = "SpaceDeck"
+$names = @($appName, "SpaceDeck.Collector")
 $cores = [Environment]::ProcessorCount
 $end = (Get-Date).AddHours($Hours)
 $last = @{}

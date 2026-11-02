@@ -1,0 +1,283 @@
+<Window x:Class="SpaceDeck.App.Views.TileEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Name="Root"
+        Title="{Binding WindowTitle}"
+        Width="980" Height="680" MinWidth="820" MinHeight="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Skin.Background}" Foreground="{DynamicResource Skin.Text}"
+        FontFamily="{DynamicResource Skin.Font.Body}">
+  <Grid Margin="28,24,28,20">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="210" />
+      <ColumnDefinition Width="28" />
+      <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="28" />
+      <ColumnDefinition Width="250" />
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- 1 · Widget -->
+    <DockPanel Grid.Column="0">
+      <TextBlock DockPanel.Dock="Top" Text="Widget" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+      <ListBox ItemsSource="{Binding Widgets}" SelectedItem="{Binding Widget}" ItemContainerStyle="{StaticResource NavItemStyle}"
+               Background="Transparent" BorderThickness="0" Padding="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <StackPanel>
+              <TextBlock Text="{Binding Name}" FontSize="14" />
+              <TextBlock Text="{Binding Description}" Style="{StaticResource Caption}" TextWrapping="Wrap" TextTrimming="None"
+                         MaxWidth="170" Margin="0,2,0,0" />
+            </StackPanel>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+
+    <!-- 2 · Sensors -->
+    <Grid Grid.Column="2">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+      <DockPanel Margin="0,0,0,10">
+        <TextBlock DockPanel.Dock="Right" Text="{Binding SensorHint}" Style="{StaticResource Caption}" VerticalAlignment="Bottom"
+                   Visibility="{Binding NeedsSensors, Converter={StaticResource VisibleWhen}}" />
+        <TextBlock Text="Sensors" Style="{StaticResource SectionTitle}" />
+      </DockPanel>
+
+      <TextBlock Grid.Row="1" Grid.RowSpan="3" Text="This widget doesn't use sensors." Style="{StaticResource Caption}" FontSize="14"
+                 Visibility="{Binding NeedsSensors, Converter={StaticResource VisibleWhen}, ConverterParameter=invert}" />
+
+      <Grid Grid.Row="1" Margin="0,0,0,8" Visibility="{Binding NeedsSensors, Converter={StaticResource VisibleWhen}}">
+        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Search sensors" />
+        <TextBlock Text="Search, e.g. “cpu temp” or “fan 3”" Margin="11,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                   Style="{StaticResource Caption}" Foreground="{DynamicResource Skin.TextFaint}"
+                   Visibility="{Binding SearchText, Converter={StaticResource VisibleWhen}, ConverterParameter=invert}" />
+      </Grid>
+
+      <ListBox Grid.Row="2" ItemsSource="{Binding Categories}" SelectedItem="{Binding Category}"
+               ItemContainerStyle="{StaticResource ChipStyle}" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,6"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               Visibility="{Binding NeedsSensors, Converter={StaticResource VisibleWhen}}">
+        <ListBox.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ListBox.ItemsPanel>
+      </ListBox>
+
+      <ItemsControl Grid.Row="3" ItemsSource="{Binding View}" Focusable="False"
+                    VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                    VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True"
+                    Visibility="{Binding NeedsSensors, Converter={StaticResource VisibleWhen}}">
+        <ItemsControl.Template>
+          <ControlTemplate TargetType="ItemsControl">
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Focusable="False"
+                          CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}">
+              <ItemsPresenter Margin="0,0,14,0" />
+            </ScrollViewer>
+          </ControlTemplate>
+        </ItemsControl.Template>
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.GroupStyle>
+          <GroupStyle>
+            <GroupStyle.HeaderTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" Margin="0,12,0,4" FontWeight="{DynamicResource Skin.Weight.Strong}" />
+              </DataTemplate>
+            </GroupStyle.HeaderTemplate>
+          </GroupStyle>
+        </ItemsControl.GroupStyle>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Button Command="{Binding DataContext.PickCommand, ElementName=Root}" CommandParameter="{Binding}" Style="{StaticResource RowButton}">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="14" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Rectangle Width="8" Height="2" HorizontalAlignment="Left" VerticalAlignment="Center" Fill="{DynamicResource Skin.Accent}"
+                           Visibility="{Binding IsChosen, Converter={StaticResource VisibleWhen}}" />
+                <TextBlock Grid.Column="1" Text="{Binding Sensor.Name}" Style="{StaticResource Body}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding Sensor.DisplayValue}" Style="{StaticResource Numeric}" Margin="10,0,0,0"
+                           FontSize="{DynamicResource Skin.Size.Small}" Foreground="{DynamicResource Skin.TextMuted}" VerticalAlignment="Center" />
+              </Grid>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- Chosen sensors, removable. -->
+      <ItemsControl Grid.Row="4" ItemsSource="{Binding Chosen}" Focusable="False" Margin="0,10,0,0"
+                    Visibility="{Binding NeedsSensors, Converter={StaticResource VisibleWhen}}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border BorderBrush="{DynamicResource Skin.Rule}" BorderThickness="1" Padding="8,2,2,2" Margin="0,0,6,6">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Name}" Style="{StaticResource Caption}" Foreground="{DynamicResource Skin.Text}" VerticalAlignment="Center" />
+                <Button Content="×" Padding="6,0" Margin="4,0,0,0" Background="Transparent" BorderThickness="0"
+                        Foreground="{DynamicResource Skin.TextMuted}"
+                        Command="{Binding DataContext.RemoveCommand, ElementName=Root}" CommandParameter="{Binding}"
+                        AutomationProperties.Name="Remove" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Grid>
+
+    <!-- 3 · Settings -->
+    <ScrollViewer Grid.Column="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="0,0,14,0">
+        <TextBlock Text="Settings" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
+
+        <CheckBox Content="Show title" IsChecked="{Binding ShowTitle}" />
+        <TextBlock Text="Title (blank = sensor name)" Style="{StaticResource Caption}" Margin="0,10,0,4"
+                   Visibility="{Binding ShowTitle, Converter={StaticResource VisibleWhen}}" />
+        <TextBox Text="{Binding TitleText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5"
+                 Visibility="{Binding ShowTitle, Converter={StaticResource VisibleWhen}}" />
+
+        <StackPanel Visibility="{Binding IsLabel, Converter={StaticResource VisibleWhen}}">
+          <TextBlock Text="Text" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <TextBox Text="{Binding LabelText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60" />
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding HasTemplate, Converter={StaticResource VisibleWhen}}">
+          <TextBlock Text="Template ({1} = first sensor's value, {1:name} = its name; blank = name and value of each)" Style="{StaticResource Caption}"
+                     Margin="0,12,0,4" TextWrapping="Wrap" TextTrimming="None" />
+          <TextBox Text="{Binding LabelText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Template" />
+          <TextBlock Text="Example: CPU {1} · GPU {2} · {3} total" Style="{StaticResource Caption}" Foreground="{DynamicResource Skin.TextFaint}" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding HasSection, Converter={StaticResource VisibleWhen}}">
+          <TextBlock Text="Section" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <ComboBox ItemsSource="{Binding SectionKinds}" SelectedItem="{Binding SectionKind}" DisplayMemberPath="Label" AutomationProperties.Name="Section" />
+          <TextBlock Text="Hardware" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <ComboBox ItemsSource="{Binding SectionHardwareOptions}" SelectedItem="{Binding SectionHardware}" DisplayMemberPath="Label"
+                    AutomationProperties.Name="Section hardware" />
+          <StackPanel Visibility="{Binding HasFanMode, Converter={StaticResource VisibleWhen}}">
+            <TextBlock Text="Fan speeds as" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+            <ComboBox ItemsSource="{Binding FanModes}" SelectedItem="{Binding FanMode}" DisplayMemberPath="Label" AutomationProperties.Name="Fan speeds as" />
+            <TextBlock Text="100 % is the fan's maximum from FanControl's calibration, or else the highest speed seen." Style="{StaticResource Caption}"
+                       Margin="0,4,0,0" TextWrapping="Wrap" TextTrimming="None" Foreground="{DynamicResource Skin.TextFaint}" />
+          </StackPanel>
+          <TextBlock Text="Show" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <ItemsControl ItemsSource="{Binding SectionOptions}" Focusable="False">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsChecked}" Margin="0,2" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="The tile's height adjusts to its rows when you save." Style="{StaticResource Caption}" Margin="0,6,0,0"
+                     TextWrapping="Wrap" TextTrimming="None" Foreground="{DynamicResource Skin.TextFaint}" />
+          <TextBlock Text="Rows (untick to hide; blank name = automatic)" Style="{StaticResource Caption}" Margin="0,14,0,4" />
+          <ItemsControl ItemsSource="{Binding RowNames}" Focusable="False">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid Margin="0,2">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="104" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <CheckBox IsChecked="{Binding IsShown}" VerticalAlignment="Center" Margin="0,0,4,0" MinWidth="0"
+                            AutomationProperties.Name="{Binding Automatic, StringFormat='Show {0}'}" />
+                  <TextBlock Grid.Column="1" Text="{Binding Automatic}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                             Foreground="{DynamicResource Skin.TextMuted}" ToolTip="{Binding Automatic}" />
+                  <TextBox Grid.Column="2" Text="{Binding Custom, UpdateSourceTrigger=PropertyChanged}" Padding="6,3"
+                           AutomationProperties.Name="{Binding Automatic, StringFormat='New name for {0}'}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding HasMetric, Converter={StaticResource VisibleWhen}}">
+          <TextBlock Text="Show" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <ComboBox ItemsSource="{Binding Metrics}" SelectedItem="{Binding Metric}" DisplayMemberPath="Label" AutomationProperties.Name="Core map shows" />
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding HasTimeWindow, Converter={StaticResource VisibleWhen}}">
+          <TextBlock Text="Time span" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <ComboBox ItemsSource="{Binding Windows}" SelectedItem="{Binding Window}" DisplayMemberPath="Label" />
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding HasNumberSettings, Converter={StaticResource VisibleWhen}}">
+          <TextBlock Text="Decimals" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <ComboBox ItemsSource="{Binding DecimalOptions}" SelectedItem="{Binding Decimals}" DisplayMemberPath="Label" />
+
+          <CheckBox Content="Show min / max" IsChecked="{Binding ShowMinMax}" Margin="0,12,0,0" />
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding HasScale, Converter={StaticResource VisibleWhen}}">
+          <TextBlock Text="Scale (blank = automatic)" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="24" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBox Text="{Binding ScaleMinText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Scale minimum" ToolTip="Minimum" />
+            <TextBlock Grid.Column="1" Text="–" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource Caption}" />
+            <TextBox Grid.Column="2" Text="{Binding ScaleMaxText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Scale maximum" ToolTip="Maximum" />
+          </Grid>
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding NeedsSensors, Converter={StaticResource VisibleWhen}}">
+          <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,4"
+                     Text="{Binding ThresholdUnit, StringFormat='Warning / critical at or above ({0})'}" />
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="24" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBox Text="{Binding WarningText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Warning threshold" ToolTip="Warning" />
+            <TextBox Grid.Column="2" Text="{Binding CriticalText, UpdateSourceTrigger=PropertyChanged}" Padding="8,5" AutomationProperties.Name="Critical threshold" ToolTip="Critical" />
+          </Grid>
+          <TextBlock Text="Blank uses the defaults (temperatures 80/90 °C, rails ±5 %)." Style="{StaticResource Caption}"
+                     TextWrapping="Wrap" TextTrimming="None" Margin="0,4,0,0" Foreground="{DynamicResource Skin.TextFaint}" />
+        </StackPanel>
+
+        <TextBlock Text="Color" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+        <ComboBox ItemsSource="{Binding AccentOptions}" SelectedItem="{Binding Accent}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal">
+                <Rectangle Width="14" Height="3" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Fill="{Binding Value, Converter={StaticResource SeriesBrush}}" />
+                <TextBlock Text="{Binding Label}" />
+              </StackPanel>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Footer -->
+    <DockPanel Grid.Row="1" Grid.ColumnSpan="5" Margin="0,18,0,0">
+      <Button DockPanel.Dock="Right" Content="Cancel" IsCancel="True" Padding="16,6" Margin="10,0,0,0" />
+      <Button DockPanel.Dock="Right" Content="{Binding SaveText}" IsDefault="True" Padding="16,6"
+              Command="{Binding SaveCommand}" Style="{DynamicResource AccentButtonStyle}" />
+      <TextBlock Text="{Binding Error}" Foreground="{DynamicResource Skin.Critical}" VerticalAlignment="Center" TextWrapping="Wrap" />
+    </DockPanel>
+  </Grid>
+</Window>

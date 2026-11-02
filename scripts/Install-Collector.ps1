@@ -1,15 +1,15 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Publishes the SensorDeck collector and installs (or updates) it as a Windows Service.
+    Publishes the SpaceDeck collector and installs (or updates) it as a Windows Service.
 
 .DESCRIPTION
-    Builds src/SensorDeck.Collector, copies it to "C:\Program Files\SensorDeck\Collector",
-    and registers the "SensorDeckCollector" service (automatic start, LocalSystem).
+    Builds src/SpaceDeck.Collector, copies it to "C:\Program Files\SpaceDeck\Collector",
+    and registers the "SpaceDeckCollector" service (automatic start, LocalSystem).
     Safe to re-run after code changes: it stops the service, republishes, and starts it again.
 
     The service runs as SYSTEM, so the script also makes sure normal users can't change its files:
-    the install folder and %ProgramData%\SensorDeck (settings, logs, history) get an ACL where only
+    the install folder and %ProgramData%\SpaceDeck (settings, logs, history) get an ACL where only
     SYSTEM and Administrators can write, and links planted in the data folder (including hard links) are
     removed. A data folder a normal user created first is taken over for Administrators.
 
@@ -18,16 +18,16 @@
 #>
 param(
     [string]$Configuration = "Release",
-    [string]$InstallDir = (Join-Path $env:ProgramFiles "SensorDeck\Collector")
+    [string]$InstallDir = (Join-Path $env:ProgramFiles "SpaceDeck\Collector")
 )
 
 $ErrorActionPreference = "Stop"
-$serviceName = "SensorDeckCollector"
+$serviceName = "SpaceDeckCollector"
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$project = Join-Path $repoRoot "src\SensorDeck.Collector\SensorDeck.Collector.csproj"
+$project = Join-Path $repoRoot "src\SpaceDeck.Collector\SpaceDeck.Collector.csproj"
 $InstallDir = [System.IO.Path]::GetFullPath($InstallDir)
-$exe = Join-Path $InstallDir "SensorDeck.Collector.exe"
-$dataDir = Join-Path $env:ProgramData "SensorDeck"
+$exe = Join-Path $InstallDir "SpaceDeck.Collector.exe"
+$dataDir = Join-Path $env:ProgramData "SpaceDeck"
 
 # SIDs, so the script works on non-English Windows: SYSTEM, Administrators, Users.
 $aclGrants = @("*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F", "*S-1-5-32-545:(OI)(CI)RX")
@@ -149,6 +149,33 @@ if ($existing -and $existing.Status -ne "Stopped") {
     $existing.WaitForStatus("Stopped", [TimeSpan]::FromSeconds(30))
 }
 
+# Renamed from SensorDeck (2026-11): remove the old service and its install folder, and copy the old data folder
+# (collector settings, history, logs) to the new one the first time. The old data folder is left as it was.
+$legacyService = "SensorDeckCollector"
+$legacyDataDir = Join-Path $env:ProgramData "SensorDeck"
+$legacyInstallDir = Join-Path $env:ProgramFiles "SensorDeck"
+$old = Get-Service -Name $legacyService -ErrorAction SilentlyContinue
+if ($old) {
+    Write-Host "Removing the old $legacyService service (SensorDeck is now SpaceDeck)..."
+    if ($old.Status -ne "Stopped") {
+        Stop-Service -Name $legacyService -Force
+        $old.WaitForStatus("Stopped", [TimeSpan]::FromSeconds(30))
+    }
+    sc.exe delete $legacyService | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Couldn't remove the old $legacyService service." }
+}
+$dataDirEmpty = -not (Test-Path -LiteralPath $dataDir) -or -not (Get-ChildItem -LiteralPath $dataDir -Force | Select-Object -First 1)
+if ((Test-Path -LiteralPath $legacyDataDir) -and $dataDirEmpty) {
+    Write-Host "Copying $legacyDataDir to $dataDir..."
+    # /XJ /XJD /XJF: links are skipped, never followed. Permissions aren't copied; Set-AdminOnlyAcl below sets them.
+    robocopy.exe $legacyDataDir $dataDir /E /XJ /XJD /XJF /COPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+    if ($LASTEXITCODE -ge 8) { throw "Copying $legacyDataDir failed (robocopy exit code $LASTEXITCODE)." }
+}
+if (Test-Path -LiteralPath $legacyInstallDir) {
+    Write-Host "Removing the old install folder $legacyInstallDir..."
+    Remove-Item -LiteralPath $legacyInstallDir -Recurse -Force
+}
+
 $programFiles = [System.IO.Path]::GetFullPath($env:ProgramFiles).TrimEnd('\') + '\'
 if (-not $InstallDir.StartsWith($programFiles, [StringComparison]::OrdinalIgnoreCase)) {
     Write-Warning ("$InstallDir is outside Program Files. The service runs these files as SYSTEM: make sure normal users " +
@@ -174,8 +201,8 @@ if (-not $existing) {
     Write-Host "Creating service $serviceName..."
     New-Service -Name $serviceName `
         -BinaryPathName $binaryPath `
-        -DisplayName "SensorDeck Collector" `
-        -Description "Reads hardware sensors (LibreHardwareMonitor on PawnIO) for the SensorDeck dashboard. Read-only: never controls fans." `
+        -DisplayName "SpaceDeck Collector" `
+        -Description "Reads hardware sensors (LibreHardwareMonitor on PawnIO) for the SpaceDeck dashboard. Read-only: never controls fans." `
         -StartupType Automatic | Out-Null
 
     # Restart automatically if it crashes: after 5 s, 5 s, then 30 s; reset the failure count daily.
@@ -195,4 +222,4 @@ Start-Service -Name $serviceName
 Get-Service -Name $serviceName | Format-Table -AutoSize Name, Status, StartType
 
 Write-Host "Logs: $dataDir\logs"
-Write-Host "Test: dotnet run --project src\SensorDeck.Cli -- connect"
+Write-Host "Test: dotnet run --project src\SpaceDeck.Cli -- connect"

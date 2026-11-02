@@ -1,6 +1,6 @@
 # Updating LibreHardwareMonitorLib
 
-SensorDeck reads hardware through LibreHardwareMonitorLib (LHM). New LHM versions add boards and chips, but they can
+SpaceDeck reads hardware through LibreHardwareMonitorLib (LHM). New LHM versions add boards and chips, but they can
 also rename sensors, change sensor ids, or change how a voltage is scaled. Saved dashboards, alert rules, renames and
 scales are keyed on sensor ids, so an update needs a quick before/after check.
 
@@ -8,15 +8,15 @@ scales are keyed on sensor ids, so an update needs a quick before/after check.
 
 1. **Before:** with the current build, save a hardware report under a steady, idle load.
    - App: Diagnostics → *Save hardware report…* → `before.json`, or
-   - CLI (elevated): `sensordeck-cli json > before.json`
+   - CLI (elevated): `spacedeck-cli json > before.json`
 2. **Update the package** in `Directory.Packages.props` (`LibreHardwareMonitorLib`) and read LHM's release notes
    for breaking changes (renamed sensor types, removed hardware, PawnIO changes).
 3. **Build and test:** `dotnet build -c Release` then `dotnet test`. Fix any API changes in
-   `src/SensorDeck.Sources.Lhm` (`LhmSource`, `LhmMapping`). New LHM `SensorType`s must be mapped in `LhmMapping`;
+   `src/SpaceDeck.Sources.Lhm` (`LhmSource`, `LhmMapping`). New LHM `SensorType`s must be mapped in `LhmMapping`;
    enum values in `SensorKind` are wire format, so only ever append.
 4. **After:** reinstall/restart the collector with the new build (`scripts\Install-Collector.ps1`), wait a minute
    at the same idle load, and save `after.json` the same way.
-5. **Compare:** `sensordeck-cli diff before.json after.json`
+5. **Compare:** `spacedeck-cli diff before.json after.json`
    - *Sensors removed / kind changed* (exit code 3): ids changed. Dashboards and alert rules pointing at them show
      as missing; open the dashboard and use *Relink* (or the missing-sensor prompt) to point them at the new ids.
      If many ids moved the same way, consider a mapping in `SensorLinker` so users don't relink by hand.

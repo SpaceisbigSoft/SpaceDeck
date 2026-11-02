@@ -1,11 +1,11 @@
 THIRD-PARTY NOTICES
 ===================
 
-SensorDeck is licensed under the MIT License (see LICENSE). It includes or uses the
+SpaceDeck is licensed under the MIT License (see LICENSE). It includes or uses the
 third-party software listed below, each under its own license. The full license texts
 follow the list.
 
-Unmodified copies of these components are distributed with SensorDeck. For the
+Unmodified copies of these components are distributed with SpaceDeck. For the
 components under the Mozilla Public License 2.0, the source code is available from the
 project addresses listed (use the version shown).
 
@@ -59,12 +59,12 @@ NOT INCLUDED (WORKS WITH)
 -------------------------
 
 PawnIO — the signed driver LibreHardwareMonitor uses for low-level hardware access. It is
-installed separately from https://pawnio.eu and is not included in or modified by SensorDeck.
+installed separately from https://pawnio.eu and is not included in or modified by SpaceDeck.
 PawnIO is licensed under GPL-2.0 with an exception for programs that use its interface.
 
-FanControl — fan control software by Rémi Mercier (https://getfancontrol.com). SensorDeck
+FanControl — fan control software by Rémi Mercier (https://getfancontrol.com). SpaceDeck
 only asks an installed FanControl to load the user's own saved configs. FanControl is not
-included, and SensorDeck is not affiliated with or endorsed by its author.
+included, and SpaceDeck is not affiliated with or endorsed by its author.
 
 ntfy — an optional notification service (https://ntfy.sh) that users may choose to send
 alerts to. Nothing from ntfy is included.
