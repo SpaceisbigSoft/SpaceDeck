@@ -24,6 +24,15 @@ dotnet test SpaceDeck.slnx
 
 Or open `SpaceDeck.slnx` in Visual Studio.
 
+### Release build
+
+Self-contained builds (the target PC needs no .NET install) go to `artifacts\publish\App` and
+`artifacts\publish\Collector` (collector service + CLI). They are the input for the installer.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Publish-Release.ps1 -Version 0.1.0
+```
+
 ## Check your sensors
 
 Run from an **elevated** terminal (right-click Terminal → Run as administrator):
