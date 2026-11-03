@@ -10,7 +10,7 @@
     <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'">true</TreatWarningsAsErrors>
     <Company>SpaceDeck</Company>
     <Product>SpaceDeck</Product>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 </Project>
