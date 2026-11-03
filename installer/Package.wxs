@@ -32,6 +32,18 @@
 
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
+    <!--
+      SpaceDeck (and spacedeck-cli) must not keep running while their files are replaced or removed (uninstall, upgrade,
+      repair). Ask nicely first (close / end-session messages: the app saves and exits), then end what's still running
+      after 5 seconds. The collector service is stopped separately (ServiceControl below).
+    -->
+    <util:CloseApplication Id="CloseSpaceDeck" Target="SpaceDeck.exe"
+                           CloseMessage="yes" EndSessionMessage="yes" ElevatedEndSessionMessage="yes"
+                           TerminateProcess="0" Timeout="5" RebootPrompt="no"
+                           Description="SpaceDeck is closed while it is updated or removed." />
+    <util:CloseApplication Id="CloseSpaceDeckCli" Target="spacedeck-cli.exe"
+                           TerminateProcess="0" Timeout="1" RebootPrompt="no" />
+
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/SpaceisbigSoft/SpaceDeck" />
     <Property Id="ARPHELPLINK" Value="https://github.com/SpaceisbigSoft/SpaceDeck/issues" />
 

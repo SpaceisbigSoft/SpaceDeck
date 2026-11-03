@@ -15,6 +15,12 @@ public sealed class LhmSource : ISensorSource
     private Computer? _computer;
     private ISensor[] _sensors = [];
     private volatile bool _catalogDirty;
+
+    // Every device (and sub-device) whose SensorAdded/SensorRemoved we listen to. LHM adds a sensor only once it has
+    // read a value for it: a Super I/O chip whose first read was skipped (another program, such as FanControl, held
+    // the ISA bus at that moment) gets its voltages, fans and temperatures a poll or two later. Without these events
+    // the catalog built after the first read would miss them until the collector restarted.
+    private readonly HashSet<IHardware> _watched = new(ReferenceEqualityComparer.Instance);
     private int _catalogVersion;
     private bool _disposed;
 
@@ -170,6 +176,13 @@ public sealed class LhmSource : ISensorSource
         }
 
         _disposed = true;
+        foreach (var hw in _watched)
+        {
+            hw.SensorAdded -= OnSensorChanged;
+            hw.SensorRemoved -= OnSensorChanged;
+        }
+
+        _watched.Clear();
         if (_computer is not null)
         {
             _computer.HardwareAdded -= OnHardwareChanged;
@@ -188,6 +201,8 @@ public sealed class LhmSource : ISensorSource
     }
 
     private void OnHardwareChanged(IHardware hardware) => _catalogDirty = true;
+
+    private void OnSensorChanged(ISensor sensor) => _catalogDirty = true;
 
     private void SetStatus(SourceStatus status, string? message)
     {
@@ -218,6 +233,11 @@ public sealed class LhmSource : ISensorSource
             var hwKind = LhmMapping.ToHardwareKind(hw.HardwareType);
             var hwName = DisplayNames.Sanitize(hw.Name, LhmMapping.FallbackName(hwKind));
             hardware.Add(new HardwareInfo(hwId, hwName, hwKind, parentId, Name));
+            if (_watched.Add(hw))
+            {
+                hw.SensorAdded += OnSensorChanged;
+                hw.SensorRemoved += OnSensorChanged;
+            }
 
             foreach (var sensor in hw.Sensors.OrderBy(s => s.SensorType).ThenBy(s => s.Index))
             {
