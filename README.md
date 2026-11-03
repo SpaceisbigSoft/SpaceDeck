@@ -19,7 +19,7 @@ SpaceDeck is PawnIO; you don't need the LibreHardwareMonitor app or HWiNFO.
 - **Dashboards you design:** a 12-column grid of tiles (big numbers, gauges, bars, sparklines, charts, voltage rails,
   fans, core maps, network and disk throughput, clocks). Several dashboards as tabs, or each in its own window or
   overlay.
-- **Screen-edge sidebar:** dock a compact dashboard to the edge of any monitor, Sidebar Diagnostics style. It fits
+- **Screen-edge sidebar:** dock a compact dashboard to the edge of any monitor, [Sidebar Diagnostics](https://github.com/ArcadeRenegade/SidebarDiagnostics) style. It fits
   itself to the screen height and hides during fullscreen games.
 - **All sensors in one place:** search, rename, hide or correct any sensor, and add calculated sensors (e.g. CPU + GPU power).
 - **Alerts:** sensible limits out of the box, Windows notifications, sounds, quiet hours, and optional phone alerts via
@@ -58,11 +58,13 @@ your data in `%AppData%\SpaceDeck` and `%ProgramData%\SpaceDeck`.
 
 ### Good to know
 
-- **Anti-cheat:** some anti-cheat systems (FACEIT, for example) refuse to run while the PawnIO driver is loaded. This
-  affects every tool that uses PawnIO, including FanControl and LibreHardwareMonitor, and SpaceDeck can't work around
-  it.
-- **Not a safety device:** readings can be wrong and alerts can be late. Keep your BIOS fan and thermal protections on.
-- The installer isn't code-signed yet, so Windows SmartScreen may ask you to confirm ("More info" → "Run anyway").
+> [!WARNING]
+> - **Anti-cheat:** some anti-cheat systems (FACEIT, for example) refuse to run while the PawnIO driver is loaded.
+>   This affects every tool that uses PawnIO, including FanControl and LibreHardwareMonitor, and SpaceDeck can't work
+>   around it.
+> - **Not a safety device:** readings can be wrong and alerts can be late. Keep your BIOS fan and thermal protections on.
+> - **Unsigned installer:** the installer isn't code-signed yet, so Windows SmartScreen may ask you to confirm
+>   ("More info" → "Run anyway").
 
 ## How it works
 
