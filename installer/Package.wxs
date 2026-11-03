@@ -34,7 +34,6 @@
 
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/SpaceisbigSoft/SpaceDeck" />
     <Property Id="ARPHELPLINK" Value="https://github.com/SpaceisbigSoft/SpaceDeck/issues" />
-    <Property Id="ARPNOMODIFY" Value="1" />
 
     <!-- PawnIO: present when its driver service is registered. -->
     <Property Id="PAWNIOINSTALLED">
