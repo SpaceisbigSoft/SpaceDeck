@@ -40,6 +40,10 @@
       <RegistrySearch Id="PawnIOService" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\PawnIO" Name="ImagePath" Type="raw" Bitness="always64" />
     </Property>
 
+    <Icon Id="SpaceDeckIcon" SourceFile="$(var.PublishDir)App\SpaceDeck.exe" />
+    <Property Id="ARPPRODUCTICON" Value="SpaceDeckIcon" />
+
+    <StandardDirectory Id="ProgramMenuFolder" />
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="SpaceDeck">
         <Directory Id="COLLECTORFOLDER" Name="Collector" />
@@ -49,7 +53,6 @@
     <Feature Id="Main" Title="SpaceDeck" Level="1" AllowAbsent="no">
       <ComponentGroupRef Id="AppFiles" />
       <ComponentGroupRef Id="CollectorFiles" />
-      <ComponentRef Id="StartMenuShortcut" />
     </Feature>
 
     <!-- UI: welcome + license, progress, finish page with "Open SpaceDeck" and the PawnIO note when it's missing. -->
@@ -72,7 +75,11 @@
   <Fragment>
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
       <Component Id="AppExe">
-        <File Id="SpaceDeckExe" Source="$(var.PublishDir)App\SpaceDeck.exe" KeyPath="yes" />
+        <File Id="SpaceDeckExe" Source="$(var.PublishDir)App\SpaceDeck.exe" KeyPath="yes">
+          <!-- Advertised Start menu shortcut: part of the exe's component, so no extra registry key-path is needed. -->
+          <Shortcut Id="SpaceDeckShortcut" Directory="ProgramMenuFolder" Name="SpaceDeck" Description="Hardware monitor dashboards"
+                    WorkingDirectory="INSTALLFOLDER" Advertise="yes" Icon="SpaceDeckIcon" />
+        </File>
       </Component>
       <Files Include="$(var.PublishDir)App\**">
         <Exclude Files="$(var.PublishDir)App\SpaceDeck.exe" />
@@ -98,12 +105,5 @@
       </Files>
     </ComponentGroup>
 
-    <StandardDirectory Id="ProgramMenuFolder">
-      <Component Id="StartMenuShortcut">
-        <Shortcut Id="SpaceDeckShortcut" Name="SpaceDeck" Description="Hardware monitor dashboards"
-                  Target="[#SpaceDeckExe]" WorkingDirectory="INSTALLFOLDER" />
-        <RegistryValue Root="HKLM" Key="Software\SpaceDeck" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
-      </Component>
-    </StandardDirectory>
   </Fragment>
 </Wix>
