@@ -1,6 +1,8 @@
 # Builds and tests SpaceDeck on Windows and produces the installer (MSI + SHA256SUMS.txt) as a build artifact.
 #
 # Releasing (any of these):
+#   - Raise <Version> in Directory.Build.props and push to main: when no release v<Version> exists yet, the run
+#     creates tag v<Version> and publishes the release. (Pushes that keep the same version just build.)
 #   - Actions -> Build -> Run workflow, enter a version (e.g. 0.1.1): builds it, creates tag v0.1.1 and the release.
 #   - Push a tag like v0.1.1.
 #   - Publish a release with a new v* tag on GitHub's website: the run for that tag attaches the files to it.
@@ -37,6 +39,7 @@ jobs:
         shell: pwsh
         env:
           INPUT_VERSION: ${{ github.event.inputs.release_version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           $release = 'false'
           if ($env:INPUT_VERSION) {
@@ -45,6 +48,12 @@ jobs:
             $v = $env:GITHUB_REF_NAME.Substring(1); $release = 'true'
           } else {
             $v = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version
+            # A push to main with a version that has no release yet publishes it.
+            if ($env:GITHUB_EVENT_NAME -eq 'push' -and $env:GITHUB_REF -eq 'refs/heads/main') {
+              gh release view "v$v" *> $null
+              if ($LASTEXITCODE -ne 0) { $release = 'true' }
+              $global:LASTEXITCODE = 0
+            }
           }
           if ($v -notmatch '^\d+\.\d+\.\d+([-+][0-9A-Za-z.\-]+)?$') { throw "Not a version: '$v'" }
           "version=$v" >> $env:GITHUB_OUTPUT

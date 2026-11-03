@@ -109,7 +109,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Installer.ps
 # -> artifacts\installer\SpaceDeck-0.1.0-x64.msi and SHA256SUMS.txt
 ```
 
-GitHub Actions builds, tests and packages every push. Pushing a `v*` tag publishes a release.
+GitHub Actions builds, tests and packages every push. Raising `<Version>` in `Directory.Build.props` and pushing to
+`main` publishes that version as a release (tag, MSI and `SHA256SUMS.txt`).
 
 <details>
 <summary>Repository layout</summary>
