@@ -52,6 +52,8 @@ SpaceDeck is PawnIO; you don't need the LibreHardwareMonitor app or HWiNFO.
 **Requirements:** Windows 10 (2004 or later) or Windows 11, x64, on real hardware. Virtual machines expose few or no
 sensors.
 
+**What's new:** see [CHANGELOG.md](CHANGELOG.md) or the [Releases](../../releases) page.
+
 **Updating:** SpaceDeck can check for new versions (About → Updates, off by default). Installing a new MSI over the old
 one keeps all settings and history. **Uninstalling** (Settings → Apps) removes the program and the service and keeps
 your data in `%AppData%\SpaceDeck` and `%ProgramData%\SpaceDeck`.

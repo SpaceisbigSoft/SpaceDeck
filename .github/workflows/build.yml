@@ -7,6 +7,8 @@
 #   - Push a tag like v0.1.1.
 #   - Publish a release with a new v* tag on GitHub's website: the run for that tag attaches the files to it.
 # A version with a suffix (0.2.0-beta.1) gives a pre-release, which the app's update check ignores.
+# Release notes come from the version's section in CHANGELOG.md (scripts/Get-ReleaseNotes.ps1): write it before
+# raising the version. Every push to main also brings the notes of existing releases in line with CHANGELOG.md.
 name: Build
 
 on:
@@ -85,13 +87,37 @@ jobs:
           $v = '${{ steps.version.outputs.version }}'
           $tag = "v$v"
           $files = (Get-ChildItem artifacts/installer/*).FullName
+          ./scripts/Get-ReleaseNotes.ps1 -Version $v -OutFile release-notes.md
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Release $tag exists: attaching the installer"
             gh release upload $tag @files --clobber
           } else {
-            $flags = @('--title', "SpaceDeck $v", '--generate-notes', '--target', $env:GITHUB_SHA)
+            $flags = @('--title', "SpaceDeck $v", '--notes-file', 'release-notes.md', '--target', $env:GITHUB_SHA)
             if ($v -match '-') { $flags += '--prerelease' }
             gh release create $tag @files @flags
           }
           if ($LASTEXITCODE -ne 0) { throw "Publishing $tag failed." }
+
+  # Keeps every published release's notes equal to its CHANGELOG.md section (fixes typos, fills in old releases).
+  release-notes:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync release notes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          foreach ($v in ./scripts/Get-ReleaseNotes.ps1 -ListVersions) {
+            gh release view "v$v" --json body --jq .body > current.md 2> $null
+            if ($LASTEXITCODE -ne 0) { Write-Host "v${v}: no release yet"; $global:LASTEXITCODE = 0; continue }
+            ./scripts/Get-ReleaseNotes.ps1 -Version $v -OutFile wanted.md
+            if ((Get-Content current.md -Raw).Trim() -eq (Get-Content wanted.md -Raw).Trim()) { Write-Host "v${v}: up to date"; continue }
+            gh release edit "v$v" --notes-file wanted.md
+            if ($LASTEXITCODE -ne 0) { throw "Updating the notes of v$v failed." }
+            Write-Host "v${v}: notes updated"
+          }
