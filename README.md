@@ -61,9 +61,10 @@ your data in `%AppData%\SpaceDeck` and `%ProgramData%\SpaceDeck`.
 ### Good to know
 
 > [!WARNING]
-> - **Anti-cheat:** some anti-cheat systems (FACEIT, for example) refuse to run while the PawnIO driver is loaded.
->   This affects every tool that uses PawnIO, including FanControl and LibreHardwareMonitor, and SpaceDeck can't work
->   around it.
+> - **Anti-cheat:** keep PawnIO up to date. FACEIT blocked PawnIO 2.0.x, whose driver was signed with a certificate
+>   that cheat software also used. Version 2.1 and later have a new signature, and PawnIO 2.2.0 has been tested with
+>   FACEIT's anti-cheat and SpaceDeck running together. Other anti-cheats may still object to the driver; SpaceDeck can't
+>   work around that.
 > - **Not a safety device:** readings can be wrong and alerts can be late. Keep your BIOS fan and thermal protections on.
 > - **Unsigned installer:** the installer isn't code-signed yet, so Windows SmartScreen may ask you to confirm
 >   ("More info" → "Run anyway").
