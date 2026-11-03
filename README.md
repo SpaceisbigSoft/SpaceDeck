@@ -2,8 +2,9 @@
 
 **Hardware monitoring dashboards for Windows.** SpaceDeck shows your PC's temperatures, voltages, fans, clocks, loads
 and power on dashboards you lay out yourself, with alerts, history and automatic
-[FanControl](https://github.com/Rem0o/FanControl.Releases) profile switching. It reads the hardware directly through
-LibreHardwareMonitor on the signed PawnIO driver, so no HWiNFO is needed.
+[FanControl](https://github.com/Rem0o/FanControl.Releases) profile switching. Sensors are read by the
+LibreHardwareMonitor library, which is built in, on top of the signed PawnIO driver. The only thing to install besides
+SpaceDeck is PawnIO; you don't need the LibreHardwareMonitor app or HWiNFO.
 
 ![The SpaceDeck dashboard](docs/images/dashboard.png)
 

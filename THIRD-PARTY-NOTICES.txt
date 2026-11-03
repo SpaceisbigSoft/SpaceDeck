@@ -27,6 +27,15 @@ drive and memory-module information)
           https://github.com/Blacktempel/RAMSPDToolkit
           https://github.com/Blacktempel/BlackSharp
 
+PawnIO modules (AMDFamily0F/10/17, IntelMSR, IsaBridgeEC, LpcACPIEC, LpcCrOSEC, LpcIO, RyzenSMU,
+SmbusI801, SmbusNCT6793, SmbusPIIX4), embedded unmodified inside LibreHardwareMonitorLib.dll. They are
+small signed programs that LibreHardwareMonitorLib hands to the PawnIO driver; SpaceDeck never runs or
+changes them itself.
+  License: as published in the PawnIO.Modules repository (PawnIO requires every module it loads to be
+           compatible with its GPL-2.0 license)
+  Copyright: namazso and contributors
+  Source: https://github.com/namazso/PawnIO.Modules
+
 HidSharp 2.6.x (USB HID access, used by LibreHardwareMonitorLib)
   License: Apache License 2.0
   Copyright: Copyright 2010-2019 James F. Bellinger
