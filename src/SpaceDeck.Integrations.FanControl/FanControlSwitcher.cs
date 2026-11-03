@@ -23,7 +23,7 @@ public sealed record SwitchResult(SwitchOutcome Outcome, string Message);
 /// <remarks>
 /// FanControl is the only program that writes to fans. SpaceDeck never does, so the two can't fight.
 /// FanControl may request administrator rights when launched; if Windows shows a UAC prompt on every
-/// switch, a scheduled-task launcher is the planned workaround (see docs/HANDOFF.md §8, FanControl phase).
+/// switch, a scheduled-task launcher is the planned workaround.
 /// </remarks>
 public static class FanControlSwitcher
 {

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SpaceDeck installer (WiX v5).
+
+  Installs, for all users:
+    C:\Program Files\SpaceDeck\            the app (SpaceDeck.exe) with its own .NET runtime
+    C:\Program Files\SpaceDeck\Collector\  the collector service (SpaceDeckCollector, LocalSystem, automatic) + spacedeck-cli
+    Start menu shortcut "SpaceDeck"
+
+  Not installed: the PawnIO driver (users get it from pawnio.eu; the finish page says so when it's missing).
+  Upgrades replace the whole product (major upgrade) and keep %ProgramData%\SpaceDeck and %AppData%\SpaceDeck.
+  Uninstall removes the program files and the service; settings, history and logs stay.
+  The collector locks down %ProgramData%\SpaceDeck itself when it starts (DataDirectorySecurity).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package Name="SpaceDeck"
+           Manufacturer="SpaceDeck contributors"
+           Version="$(var.Version)"
+           UpgradeCode="6BA51601-E754-4B01-ABD1-811630AE9550"
+           Scope="perMachine"
+           Compressed="yes"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="SpaceDeck hardware monitor" />
+
+    <!-- Remove the old version before installing the new one, so files and the service are always replaced cleanly. -->
+    <MajorUpgrade Schedule="afterInstallInitialize"
+                  DowngradeErrorMessage="A newer version of SpaceDeck is already installed. Uninstall it first to go back to an older version." />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/SpaceisbigSoft/SpaceDeck" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/SpaceisbigSoft/SpaceDeck/issues" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <!-- PawnIO: present when its driver service is registered. -->
+    <Property Id="PAWNIOINSTALLED">
+      <RegistrySearch Id="PawnIOService" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\PawnIO" Name="ImagePath" Type="raw" Bitness="always64" />
+    </Property>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="SpaceDeck">
+        <Directory Id="COLLECTORFOLDER" Name="Collector" />
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="SpaceDeck" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="CollectorFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <!-- UI: welcome + license, progress, finish page with "Open SpaceDeck" and the PawnIO note when it's missing. -->
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open SpaceDeck" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <SetProperty Id="WIXUI_EXITDIALOGOPTIONALTEXT"
+                 Value="PawnIO isn't installed yet. SpaceDeck needs this driver to read your sensors: get the official edition from pawnio.eu, then restart the PC (or the SpaceDeck Collector service)."
+                 After="AppSearch" Sequence="ui"
+                 Condition="NOT PAWNIOINSTALLED AND NOT Installed" />
+    <UI>
+      <ui:WixUI Id="WixUI_Minimal" />
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchSpaceDeck"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
+    <Property Id="WixShellExecTarget" Value="[#SpaceDeckExe]" />
+    <CustomAction Id="LaunchSpaceDeck" BinaryRef="Wix4UtilCA_X64" DllEntry="WixShellExec" Impersonate="yes" />
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Component Id="AppExe">
+        <File Id="SpaceDeckExe" Source="$(var.PublishDir)App\SpaceDeck.exe" KeyPath="yes" />
+      </Component>
+      <Files Include="$(var.PublishDir)App\**">
+        <Exclude Files="$(var.PublishDir)App\SpaceDeck.exe" />
+      </Files>
+    </ComponentGroup>
+
+    <ComponentGroup Id="CollectorFiles" Directory="COLLECTORFOLDER">
+      <Component Id="CollectorService">
+        <File Id="CollectorExe" Source="$(var.PublishDir)Collector\SpaceDeck.Collector.exe" KeyPath="yes" />
+        <ServiceInstall Id="CollectorServiceInstall"
+                        Name="SpaceDeckCollector"
+                        DisplayName="SpaceDeck Collector"
+                        Description="Reads hardware sensors (LibreHardwareMonitor on PawnIO) for the SpaceDeck dashboard. Read-only: never controls fans."
+                        Type="ownProcess" Start="auto" Account="LocalSystem" ErrorControl="normal" Vital="yes">
+          <!-- Restart after a crash (5 s); the failure count resets daily. -->
+          <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart"
+                              RestartServiceDelayInSeconds="5" ResetPeriodInDays="1" />
+        </ServiceInstall>
+        <ServiceControl Id="CollectorServiceControl" Name="SpaceDeckCollector" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+      </Component>
+      <Files Include="$(var.PublishDir)Collector\**">
+        <Exclude Files="$(var.PublishDir)Collector\SpaceDeck.Collector.exe" />
+      </Files>
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="SpaceDeckShortcut" Name="SpaceDeck" Description="Hardware monitor dashboards"
+                  Target="[#SpaceDeckExe]" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKLM" Key="Software\SpaceDeck" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Fragment>
+</Wix>

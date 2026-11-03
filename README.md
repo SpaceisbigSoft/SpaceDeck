@@ -6,7 +6,6 @@ A native Windows hardware-monitoring dashboard: voltages, temperatures, fans, cl
 Reads hardware through **LibreHardwareMonitorLib** on the **PawnIO** driver, with no HWiNFO needed.
 
 > Status: early development. Sensors, collector service and FanControl profile switching work on Windows. The WPF app, dashboards, alerts, automation and the network dashboard are written; see [docs/TEST-PLAN.md](docs/TEST-PLAN.md) for what is verified.
-> See [docs/HANDOFF.md](docs/HANDOFF.md) for current status, the checklist, the full plan and the changelog.
 
 ## Requirements
 
@@ -89,8 +88,9 @@ dotnet run --project src/SpaceDeck.Cli -- fancontrol switch Quiet    # load Quie
 | `src/SpaceDeck.App` | WPF app: dashboards, sensor tables, voltages, fans, history, alerts, automation, settings, network dashboard, FanControl profile picker |
 | `tests/SpaceDeck.Core.Tests` | xUnit tests for Core |
 | `tests/SpaceDeck.Collector.Tests` | History store + end-to-end pipe tests with a fake source |
-| `scripts/` | Install/uninstall the collector service |
-| `docs/` | Plan, handoff, pipe protocol, test plan, LHM update routine |
+| `scripts/` | Install/uninstall the collector service (development), release publish and installer build |
+| `installer/` | WiX v5 MSI (app, collector service, Start menu shortcut) |
+| `docs/` | Pipe protocol, test plan, LHM update routine |
 
 ## License, privacy and safety
 

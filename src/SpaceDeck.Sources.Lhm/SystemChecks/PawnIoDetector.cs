@@ -17,7 +17,7 @@ public sealed record PawnIoInfo(PawnIoState State, string? ServiceName, string? 
 /// </summary>
 /// <remarks>
 /// Matches any driver service whose name contains "PawnIO", so we don't depend on the exact name
-/// (to be confirmed on a real install and recorded in docs/HANDOFF.md).
+/// (confirmed on a real install: the driver service is named "PawnIO").
 /// </remarks>
 public static class PawnIoDetector
 {

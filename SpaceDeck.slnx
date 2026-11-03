@@ -1,7 +1,5 @@
 <Solution>
   <Folder Name="/docs/">
-    <File Path="docs/HANDOFF.md" />
-    <File Path="docs/PLAN.md" />
     <File Path="docs/PROTOCOL.md" />
     <File Path="README.md" />
   </Folder>
@@ -16,6 +14,7 @@
   <Folder Name="/scripts/">
     <File Path="scripts/Install-Collector.ps1" />
     <File Path="scripts/Publish-Release.ps1" />
+    <File Path="scripts/Build-Installer.ps1" />
     <File Path="scripts/Uninstall-Collector.ps1" />
   </Folder>
   <Folder Name="/tests/">

@@ -1,0 +1,21 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <!--
+    The SpaceDeck MSI (Phase 11). Build it with scripts\Build-Installer.ps1, which publishes the self-contained app and
+    collector first (scripts\Publish-Release.ps1) and then builds this project. Windows only.
+  -->
+  <PropertyGroup>
+    <!-- MSI versions are numeric (major.minor.build); "0.2.0-beta.1" is passed as 0.2.0. -->
+    <SpaceDeckVersion Condition="'$(SpaceDeckVersion)' == ''">0.1.0</SpaceDeckVersion>
+    <SpaceDeckPublishDir Condition="'$(SpaceDeckPublishDir)' == ''">$(MSBuildThisFileDirectory)..\artifacts\publish\</SpaceDeckPublishDir>
+    <OutputName>SpaceDeck-$(SpaceDeckVersion)-x64</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <DefineConstants>Version=$(SpaceDeckVersion);PublishDir=$(SpaceDeckPublishDir)</DefineConstants>
+    <!-- Directory.Build.props turns warnings into errors for Release; ICE warnings are reviewed by hand instead. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" />
+    <PackageReference Include="WixToolset.Util.wixext" />
+  </ItemGroup>
+</Project>

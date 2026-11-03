@@ -1,0 +1,60 @@
+# Builds and tests SpaceDeck on Windows and produces the installer (MSI + SHA256SUMS.txt) as a build artifact.
+# A tag like v0.1.0 also publishes a GitHub release with those two files (v0.2.0-beta.1 gives a pre-release, which the
+# app's update check ignores).
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # creating releases on tags
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build SpaceDeck.slnx -c Release
+
+      - name: Test
+        run: dotnet test SpaceDeck.slnx -c Release --no-build
+
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') { $v = $env:GITHUB_REF_NAME.Substring(1) }
+          else { $v = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version $v"
+
+      - name: Installer
+        shell: pwsh
+        run: ./scripts/Build-Installer.ps1 -Version '${{ steps.version.outputs.version }}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SpaceDeck-${{ steps.version.outputs.version }}-installer
+          path: artifacts/installer/*
+          if-no-files-found: error
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = '${{ steps.version.outputs.version }}'
+          $flags = @('--title', "SpaceDeck $v", '--generate-notes')
+          if ($v -match '-') { $flags += '--prerelease' }
+          gh release create $env:GITHUB_REF_NAME (Get-ChildItem artifacts/installer/*).FullName @flags
