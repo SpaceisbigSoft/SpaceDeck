@@ -1,104 +1,139 @@
 # SpaceDeck
 
-*(formerly SensorDeck)*
+**Hardware monitoring dashboards for Windows.** SpaceDeck shows your PC's temperatures, voltages, fans, clocks, loads
+and power on dashboards you lay out yourself, with alerts, history and automatic
+[FanControl](https://github.com/Rem0o/FanControl.Releases) profile switching. It reads the hardware directly through
+LibreHardwareMonitor on the signed PawnIO driver, so no HWiNFO is needed.
 
-A native Windows hardware-monitoring dashboard: voltages, temperatures, fans, clocks, loads and power in a polished, customizable UI.
-Reads hardware through **LibreHardwareMonitorLib** on the **PawnIO** driver, with no HWiNFO needed.
+![The SpaceDeck dashboard](docs/images/dashboard.png)
 
-> Status: early development. Sensors, collector service and FanControl profile switching work on Windows. The WPF app, dashboards, alerts, automation and the network dashboard are written; see [docs/TEST-PLAN.md](docs/TEST-PLAN.md) for what is verified.
+> **Status: early access (0.1).** Everything below works on the developer's own PC. Hardware support comes from
+> LibreHardwareMonitor, so most desktops and laptops work, but less common boards may show generic sensor names that
+> you can rename.
 
-## Requirements
+## Features
 
-- Windows 10 (2004+) or 11, on real hardware (VMs expose few sensors)
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- Visual Studio 2026, or 2022 17.14+, with the ".NET desktop development" workload (needed for the `.slnx` solution format and WPF)
-- [PawnIO](https://pawnio.eu), official signed edition
+- **Dashboards you design:** a 12-column grid of tiles (big numbers, gauges, bars, sparklines, charts, voltage rails,
+  fans, core maps, network and disk throughput, clocks). Several dashboards as tabs, or each in its own window or
+  overlay.
+- **Screen-edge sidebar:** dock a compact dashboard to the edge of any monitor, Sidebar Diagnostics style. It fits
+  itself to the screen height and hides during fullscreen games.
+- **All sensors in one place:** search, rename, hide or correct any sensor, and add calculated sensors (e.g. CPU + GPU power).
+- **Alerts:** sensible limits out of the box, Windows notifications, sounds, quiet hours, and optional phone alerts via
+  [ntfy](https://ntfy.sh).
+- **History:** the background collector keeps 24 hours at full rate and 7 days per minute, even while the app is
+  closed. CSV export and recording sessions with summaries are included.
+- **Fan profiles and automation:** switch FanControl configs by hand (window, tray or phone) or with rules, such as
+  "while a game runs" or "CPU above 80 °C for 30 s". SpaceDeck never writes to fans itself.
+- **Phone and tablet dashboard:** view your dashboards live in a browser on your home network (phone, tablet, Steam
+  Deck), paired with a PIN.
+- **16 skins**, °C/°F, 12/24-hour clock, backup and restore, and no telemetry.
 
-## Build and test
+<p>
+  <img src="docs/images/sidebar.png" alt="The screen-edge sidebar" height="420">
+  &nbsp;
+  <img src="docs/images/history.png" alt="24-hour history" height="420">
+</p>
 
-```powershell
-dotnet build SpaceDeck.slnx
-dotnet test SpaceDeck.slnx
+## Install
+
+1. Install the **PawnIO** driver (official signed edition) from [pawnio.eu](https://pawnio.eu). SpaceDeck needs it to
+   read sensors; it is never bundled.
+2. Download `SpaceDeck-<version>-x64.msi` from [Releases](../../releases) and run it. It installs the app and the
+   background collector service, and includes .NET, so nothing else is needed.
+3. Open **SpaceDeck** from the Start menu. The first start opens **Diagnostics**, which checks each piece and offers a
+   fix where it can.
+4. *(Optional)* Install [FanControl](https://github.com/Rem0o/FanControl.Releases) and save one config per fan
+   profile (File → Save as…). SpaceDeck finds it and lists the profiles.
+
+**Requirements:** Windows 10 (2004 or later) or Windows 11, x64, on real hardware. Virtual machines expose few or no
+sensors.
+
+**Updating:** SpaceDeck can check for new versions (About → Updates, off by default). Installing a new MSI over the old
+one keeps all settings and history. **Uninstalling** (Settings → Apps) removes the program and the service and keeps
+your data in `%AppData%\SpaceDeck` and `%ProgramData%\SpaceDeck`.
+
+### Good to know
+
+- **Anti-cheat:** some anti-cheat systems (FACEIT, for example) refuse to run while the PawnIO driver is loaded. This
+  affects every tool that uses PawnIO, including FanControl and LibreHardwareMonitor, and SpaceDeck can't work around
+  it.
+- **Not a safety device:** readings can be wrong and alerts can be late. Keep your BIOS fan and thermal protections on.
+- The installer isn't code-signed yet, so Windows SmartScreen may ask you to confirm ("More info" → "Run anyway").
+
+## How it works
+
+```
+PawnIO driver (installed separately)
+      ▲
+LibreHardwareMonitorLib  ── knows the chips and boards
+      ▲
+SpaceDeck Collector  (Windows service, LocalSystem)  ──named pipe──►  SpaceDeck app (normal user, no admin rights)
 ```
 
-Or open `SpaceDeck.slnx` in Visual Studio.
+The collector is the only part that needs administrator rights. It reads sensors, keeps history and serves the app over
+`\\.\pipe\SpaceDeck` ([protocol](docs/PROTOCOL.md)). The app is a normal WPF program. The optional network dashboard
+is served by the app, on your local network only.
 
-### Release build
+## Build from source
 
-Self-contained builds (the target PC needs no .NET install) go to `artifacts\publish\App` and
-`artifacts\publish\Collector` (collector service + CLI). They are the input for the installer.
+You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), and optionally Visual Studio 2026 (or
+2022 17.14+) with the ".NET desktop development" workload.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Publish-Release.ps1 -Version 0.1.0
+dotnet build SpaceDeck.slnx -c Release
+dotnet test SpaceDeck.slnx -c Release
 ```
 
-## Check your sensors
-
-Run from an **elevated** terminal (right-click Terminal → Run as administrator):
+Run the pieces during development:
 
 ```powershell
-dotnet run --project src/SpaceDeck.Cli -- list
-dotnet run --project src/SpaceDeck.Cli -- watch --kind voltage,temperature,fan
-dotnet run --project src/SpaceDeck.Cli -- json > spacedeck-dump.json
-```
-
-The first lines show whether PawnIO was found and whether you're running as administrator.
-
-## Collector service
-
-The collector reads sensors in the background and serves them to the dashboard over `\\.\pipe\SpaceDeck` (see [docs/PROTOCOL.md](docs/PROTOCOL.md)).
-
-```powershell
-# Try it in the foreground (elevated terminal):
+# Collector in the foreground (elevated terminal), or install it as a service (elevated):
 dotnet run --project src/SpaceDeck.Collector
-# Watch its live data from a normal terminal:
-dotnet run --project src/SpaceDeck.Cli -- connect
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Install-Collector.ps1
 
-# Install / update as a Windows Service (elevated):
-.\scripts\Install-Collector.ps1
-# Remove it:
-.\scripts\Uninstall-Collector.ps1
-```
-
-## The app
-
-```powershell
-# With the collector running (service or foreground):
+# The app (normal terminal, with the collector running):
 dotnet run --project src/SpaceDeck.App
+
+# Command-line diagnostics:
+dotnet run --project src/SpaceDeck.Cli -- list              # every sensor (elevated)
+dotnet run --project src/SpaceDeck.Cli -- connect           # live data from the collector
+dotnet run --project src/SpaceDeck.Cli -- fancontrol        # find FanControl and its configs
 ```
 
-## Fan profiles (FanControl)
-
-SpaceDeck never controls fans itself. It asks [FanControl](https://github.com/Rem0o/FanControl.Releases) to load a saved config, so the two never fight. Save one config per profile in FanControl (File → Save as…), then:
+Release builds and the installer (Windows, needs nothing beyond the .NET SDK; WiX is restored from NuGet):
 
 ```powershell
-dotnet run --project src/SpaceDeck.Cli -- fancontrol                 # find FanControl, list configs
-dotnet run --project src/SpaceDeck.Cli -- fancontrol switch Quiet    # load Quiet.json
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Installer.ps1 -Version 0.1.0
+# -> artifacts\installer\SpaceDeck-0.1.0-x64.msi and SHA256SUMS.txt
 ```
 
-## Layout
+GitHub Actions builds, tests and packages every push. Pushing a `v*` tag publishes a release.
+
+<details>
+<summary>Repository layout</summary>
 
 | Path | What |
 |---|---|
-| `src/SpaceDeck.Core` | Shared model, `ISensorSource`, pipe protocol, unit formatting, voltage-rail logic |
+| `src/SpaceDeck.Core` | Shared model, `ISensorSource`, pipe protocol, formatting |
 | `src/SpaceDeck.Sources.Lhm` | LibreHardwareMonitor source, PawnIO and elevation checks |
-| `src/SpaceDeck.Integrations.FanControl` | Finds FanControl, lists its configs, switches config |
+| `src/SpaceDeck.Integrations.FanControl` | Finds FanControl, lists and switches its configs |
+| `src/SpaceDeck.Collector` | Windows service: polls sensors, keeps history, serves the app |
+| `src/SpaceDeck.App` | WPF app: dashboards, sidebar, sensors, history, alerts, automation, settings, network dashboard |
 | `src/SpaceDeck.Cli` | `spacedeck-cli` diagnostics tool |
-| `src/SpaceDeck.Collector` | Windows Service that polls sensors and serves the UI over a named pipe |
-| `src/SpaceDeck.App` | WPF app: dashboards, sensor tables, voltages, fans, history, alerts, automation, settings, network dashboard, FanControl profile picker |
-| `tests/SpaceDeck.Core.Tests` | xUnit tests for Core |
-| `tests/SpaceDeck.Collector.Tests` | History store + end-to-end pipe tests with a fake source |
-| `scripts/` | Install/uninstall the collector service (development), release publish and installer build |
-| `installer/` | WiX v5 MSI (app, collector service, Start menu shortcut) |
-| `docs/` | Pipe protocol, test plan, LHM update routine |
+| `tests/` | xUnit tests (Core; collector history and pipe end-to-end) |
+| `installer/` | WiX v5 MSI |
+| `scripts/` | Release publish, installer build, development service install |
+| `docs/` | Pipe protocol, test plan, LibreHardwareMonitor update routine |
 
-## License, privacy and safety
+</details>
 
-- SpaceDeck is licensed under the [MIT License](LICENSE) (Copyright (c) 2026 SpaceDeck contributors).
-- Third-party components and their licenses: [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). LibreHardwareMonitorLib
-  and its helper libraries are MPL-2.0, HidSharp is Apache-2.0, the rest are MIT.
-- PawnIO and FanControl are installed separately by the user and are never bundled or modified; SpaceDeck is not
-  affiliated with either.
-- No telemetry. Network features are opt-in; see [PRIVACY.md](PRIVACY.md).
-- **Not a safety device:** readings can be wrong and alerts can be late. Don't rely on SpaceDeck to protect
-  hardware, people or property.
+## License and privacy
+
+SpaceDeck is free software under the [MIT License](LICENSE). Third-party components and their licenses are listed in
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt): LibreHardwareMonitorLib and its helpers are MPL-2.0, HidSharp is
+Apache-2.0, the rest are MIT. PawnIO and FanControl are separate projects, installed by you and never bundled or
+modified; SpaceDeck isn't affiliated with either.
+
+No telemetry. The network dashboard, phone alerts and update check are opt-in; [PRIVACY.md](PRIVACY.md) says exactly
+what each one sends.
