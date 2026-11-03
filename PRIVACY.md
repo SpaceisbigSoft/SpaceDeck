@@ -19,6 +19,7 @@ turn on one of the optional features below, and each of those only talks to the 
 | **Network dashboard** (Settings) | Only browsers on your own home network (private addresses); requests from the internet are refused | Your dashboards and live readings, to devices you paired with the PIN |
 | **Phone notifications via ntfy** (Settings) | The ntfy server you set (ntfy.sh by default) | The alert's title and text (sensor name, value, limit) to your topic. On the public server anyone who knows the topic name can read it, so the default topic is long and random |
 | **Update check** (About) | The release page (GitHub) | A plain request for the latest version, with "SpaceDeck/version" as the user agent; nothing about you or your PC |
+| **Download and install** (About, only when you click it) | GitHub release downloads | Plain requests for the installer and its checksum file, with the same user agent; nothing about you or your PC |
 
 ## Local programs SpaceDeck talks to
 

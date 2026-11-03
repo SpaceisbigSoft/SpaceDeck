@@ -72,6 +72,9 @@ public sealed partial class AboutViewModel : ObservableObject
     private Task CheckForUpdates() => Updates.CheckAsync();
 
     [RelayCommand]
+    private Task InstallUpdate() => Updates.DownloadAndInstallAsync();
+
+    [RelayCommand]
     private void OpenRelease()
     {
         if (Updates.Available is { Url.Length: > 0 } release)

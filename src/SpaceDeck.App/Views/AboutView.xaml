@@ -43,15 +43,19 @@
           </DockPanel>
           <CheckBox Content="Check for a new version about once a day" IsChecked="{Binding UpdateCheckEnabled}" Margin="0,10,0,0" />
           <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap" TextTrimming="None"
-                     Text="Off by default. The check only asks the release page for the latest version number; nothing about you or your PC is sent, and nothing is downloaded or installed." />
+                     Text="Off by default. The check only asks the release page for the latest version number; nothing about you or your PC is sent. Nothing is downloaded or installed unless you click Download and install." />
           <TextBlock Text="{Binding Updates.Status}" Foreground="{DynamicResource Skin.Text}" Margin="0,10,0,0" TextWrapping="Wrap"
                      Visibility="{Binding Updates.Status, Converter={StaticResource VisibleWhen}}" />
           <StackPanel Margin="0,10,0,0" Visibility="{Binding Updates.Available, Converter={StaticResource VisibleWhen}}">
             <DockPanel>
+              <Button DockPanel.Dock="Right" Content="Download and install" Command="{Binding InstallUpdateCommand}" Margin="8,0,0,0"
+                      IsEnabled="{Binding Updates.CanInstall}" Visibility="{Binding Updates.CanInstall, Converter={StaticResource VisibleWhen}}" />
               <Button DockPanel.Dock="Right" Content="Open download page" Command="{Binding OpenReleaseCommand}" />
               <TextBlock Text="{Binding Updates.Available.Title}" Foreground="{DynamicResource Skin.Text}"
                          FontWeight="{DynamicResource Skin.Weight.Strong}" VerticalAlignment="Center" />
             </DockPanel>
+            <TextBlock Text="{Binding Updates.InstallStatus}" Foreground="{DynamicResource Skin.Text}" Margin="0,8,0,0" TextWrapping="Wrap"
+                       Visibility="{Binding Updates.InstallStatus, Converter={StaticResource VisibleWhen}}" />
             <TextBlock Text="{Binding Updates.Available.Notes}" Style="{StaticResource Caption}" Margin="0,8,0,0"
                        TextWrapping="Wrap" TextTrimming="None" MaxHeight="240" />
           </StackPanel>

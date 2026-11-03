@@ -207,6 +207,7 @@ public partial class App : Application
             _services.GetRequiredService<AutomationService>().Start();
             _services.GetRequiredService<GlobalHotkeyService>().Start();
             _ = _services.GetRequiredService<SpaceDeck.App.Remote.RemoteServer>().ApplyAsync(); // starts only if turned on
+            UpdateService.CleanUpDownloads(); // installers from earlier updates
             _services.GetRequiredService<UpdateService>().StartAutomaticCheck();
         }
 
