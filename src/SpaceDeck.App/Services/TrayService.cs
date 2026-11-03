@@ -159,12 +159,21 @@ public sealed class TrayService : IDisposable
         parent.Text = active is null ? "Fan profile" : $"Fan profile: {active.Replace("&", "&&", StringComparison.Ordinal)}";
     }
 
-    /// <summary>The exe's own icon, or null (the caller falls back to the stock icon).</summary>
+    /// <summary>
+    /// The exe's own icon (Assets\SpaceDeck.ico) at the tray's size, so Windows uses the hand-tuned small image instead of
+    /// shrinking the large one; null makes the caller fall back to the stock icon.
+    /// </summary>
     private static System.Drawing.Icon? LoadIcon()
     {
         try
         {
-            return Environment.ProcessPath is { } exe ? System.Drawing.Icon.ExtractAssociatedIcon(exe) : null;
+            if (Environment.ProcessPath is not { } exe)
+            {
+                return null;
+            }
+
+            var size = Forms.SystemInformation.SmallIconSize.Width;
+            return System.Drawing.Icon.ExtractIcon(exe, 0, size) ?? System.Drawing.Icon.ExtractAssociatedIcon(exe);
         }
         catch (Exception ex) when (ex is ArgumentException or System.IO.IOException)
         {

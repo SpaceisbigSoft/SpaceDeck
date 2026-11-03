@@ -4,6 +4,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>SpaceDeck.Collector</RootNamespace>
     <AssemblyName>SpaceDeck.Collector</AssemblyName>
+    <ApplicationIcon>..\SpaceDeck.App\Assets\SpaceDeck.ico</ApplicationIcon>
     <!-- LHM needs admin rights; running elevated is required for full sensors. The service runs as LocalSystem. -->
   </PropertyGroup>
 

@@ -1,3 +1,5 @@
+<img src="docs/images/icon-256.png" alt="" width="72" align="right">
+
 # SpaceDeck
 
 **Hardware monitoring dashboards for Windows.** SpaceDeck shows your PC's temperatures, voltages, fans, clocks, loads

@@ -12,6 +12,8 @@
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <!-- Per-monitor DPI awareness (see app.manifest). -->
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The gauge icon: exe, taskbar, window title bars, tray (TrayService), Start menu and Apps list (installer). -->
+    <ApplicationIcon>Assets\SpaceDeck.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!-- Network dashboard (Remote/RemoteServer.cs): Kestrel serves the web client to browsers on the home network. -->

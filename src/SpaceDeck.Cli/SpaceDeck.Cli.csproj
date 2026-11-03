@@ -5,6 +5,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>SpaceDeck.Cli</RootNamespace>
     <AssemblyName>spacedeck-cli</AssemblyName>
+    <ApplicationIcon>..\SpaceDeck.App\Assets\SpaceDeck.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
