@@ -132,9 +132,9 @@ GitHub Actions builds, tests and packages every push. Pushing a `v*` tag publish
 ## License and privacy
 
 SpaceDeck is free software under the [MIT License](LICENSE). Third-party components and their licenses are listed in
-[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt): LibreHardwareMonitorLib and its helpers are MPL-2.0, HidSharp is
-Apache-2.0, the rest are MIT. PawnIO and FanControl are separate projects, installed by you and never bundled or
-modified; SpaceDeck isn't affiliated with either.
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt): LibreHardwareMonitorLib and its helpers are MPL-2.0, the PawnIO
+modules it embeds are LGPL-2.1, HidSharp is Apache-2.0, the rest are MIT. The PawnIO driver and FanControl are
+separate projects, installed by you and never bundled or modified; SpaceDeck isn't affiliated with either.
 
 No telemetry. The network dashboard, phone alerts and update check are opt-in; [PRIVACY.md](PRIVACY.md) says exactly
 what each one sends.

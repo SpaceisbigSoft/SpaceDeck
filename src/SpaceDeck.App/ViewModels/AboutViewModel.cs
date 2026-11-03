@@ -50,6 +50,7 @@ public sealed partial class AboutViewModel : ObservableObject
         new("LibreHardwareMonitor", "Reads the hardware sensors (in the collector)", "MPL-2.0", "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor"),
         new("DiskInfoToolkit, RAMSPDToolkit, BlackSharp", "Drive and memory-module details, used by LibreHardwareMonitor", "MPL-2.0", "https://github.com/Blacktempel/RAMSPDToolkit"),
         new("HidSharp", "USB device access, used by LibreHardwareMonitor", "Apache-2.0", "https://www.zer7.com/software/hidsharp"),
+        new("PawnIO modules", "Small signed programs inside LibreHardwareMonitor that the PawnIO driver runs", "LGPL-2.1", "https://github.com/namazso/PawnIO.Modules"),
         new("PawnIO", "Signed driver for low-level sensor access; installed separately, not included", "See pawnio.eu", "https://pawnio.eu"),
         new("MessagePack for C#", "App ↔ collector messages", "MIT", "https://github.com/MessagePack-CSharp/MessagePack-CSharp"),
         new("CommunityToolkit.Mvvm", "App structure (view models)", "MIT", "https://github.com/CommunityToolkit/dotnet"),
