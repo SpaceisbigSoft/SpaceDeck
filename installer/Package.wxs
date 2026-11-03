@@ -40,8 +40,8 @@
       <RegistrySearch Id="PawnIOService" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\PawnIO" Name="ImagePath" Type="raw" Bitness="always64" />
     </Property>
 
-    <Icon Id="SpaceDeckIcon" SourceFile="$(var.PublishDir)App\SpaceDeck.exe" />
-    <Property Id="ARPPRODUCTICON" Value="SpaceDeckIcon" />
+    <Icon Id="SpaceDeckIcon.exe" SourceFile="$(var.PublishDir)App\SpaceDeck.exe" />
+    <Property Id="ARPPRODUCTICON" Value="SpaceDeckIcon.exe" />
 
     <StandardDirectory Id="ProgramMenuFolder" />
     <StandardDirectory Id="ProgramFiles64Folder">
@@ -78,7 +78,7 @@
         <File Id="SpaceDeckExe" Source="$(var.PublishDir)App\SpaceDeck.exe" KeyPath="yes">
           <!-- Advertised Start menu shortcut: part of the exe's component, so no extra registry key-path is needed. -->
           <Shortcut Id="SpaceDeckShortcut" Directory="ProgramMenuFolder" Name="SpaceDeck" Description="Hardware monitor dashboards"
-                    WorkingDirectory="INSTALLFOLDER" Advertise="yes" Icon="SpaceDeckIcon" />
+                    WorkingDirectory="INSTALLFOLDER" Advertise="yes" Icon="SpaceDeckIcon.exe" />
         </File>
       </Component>
       <Files Include="$(var.PublishDir)App\**">
