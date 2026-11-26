@@ -30,8 +30,17 @@ public static class GalahadProtocol
     /// <summary>Galahad II Trinity. Its status reply has no coolant temperature.</summary>
     public const ushort TrinityProductId = 0x7373;
 
+    /// <summary>Report id of the 64-byte command packets (0x02 and 0x03 carry the screen's image data).</summary>
     public const byte ReportId = 0x01;
+
+    /// <summary>Status query ("handshake"): the reply carries fan RPM, pump RPM and the coolant temperature.</summary>
     public const byte StatusCommand = 0x81;
+
+    /// <summary>Firmware query: answered with two packets of ASCII text.</summary>
+    public const byte FirmwareCommand = 0x86;
+
+    /// <summary>Size of a command packet on the wire.</summary>
+    public const int CommandPacketLength = 64;
 
     // [0] report id, [1] command, [2] 0, [3..4] packet number, [5] payload length, payload from [6].
     private const int HeaderLength = 6;
@@ -45,6 +54,62 @@ public static class GalahadProtocol
 
     /// <summary>True for the models whose status reply carries the coolant temperature (the LCD family).</summary>
     public static bool HasCoolantSensor(ushort productId) => productId is LcdProductId or LcdAlternateProductId;
+
+    /// <summary>
+    /// The only two requests SpaceDeck ever sends to the cooler: <see cref="StatusCommand"/> and
+    /// <see cref="FirmwareCommand"/>, each with no payload. Both are questions; neither changes anything on the device.
+    /// </summary>
+    /// <param name="command">Must be <see cref="StatusCommand"/> or <see cref="FirmwareCommand"/>.</param>
+    /// <param name="outputReportLength">The collection's output report length. Windows wants every write padded to it
+    /// (this cooler's collection is sized for its 1024-byte image reports); the padding is zeros.</param>
+    public static byte[] Query(byte command, int outputReportLength)
+    {
+        if (command is not (StatusCommand or FirmwareCommand))
+        {
+            throw new ArgumentOutOfRangeException(nameof(command), command, "Only the status and firmware queries may be sent.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(outputReportLength, CommandPacketLength);
+        var report = new byte[outputReportLength];
+        report[0] = ReportId;
+        report[1] = command;
+        return report;
+    }
+
+    /// <summary>
+    /// True only for a request <see cref="Query"/> builds: report id 0x01, the status or firmware command, and
+    /// nothing else but zeros. Writers check this immediately before sending, so no other bytes can reach the device.
+    /// </summary>
+    public static bool IsQuery(ReadOnlySpan<byte> report)
+    {
+        if (report.Length < CommandPacketLength || report[0] != ReportId || report[1] is not (StatusCommand or FirmwareCommand))
+        {
+            return false;
+        }
+
+        return !report[2..].ContainsAnyExcept((byte)0);
+    }
+
+    /// <summary>The ASCII text in a firmware reply's payload (up to the first zero), or null for any other report.</summary>
+    public static string? TryDecodeFirmwareText(ReadOnlySpan<byte> report)
+    {
+        if (report.Length < HeaderLength || report[0] != ReportId || report[1] != FirmwareCommand)
+        {
+            return null;
+        }
+
+        int length = Math.Min(report[PayloadLengthOffset], report.Length - HeaderLength);
+        var payload = report.Slice(HeaderLength, length);
+        var end = payload.IndexOf((byte)0);
+        var text = payload[..(end >= 0 ? end : payload.Length)];
+        var chars = new char[text.Length];
+        for (var i = 0; i < text.Length; i++)
+        {
+            chars[i] = text[i] is >= 0x20 and < 0x7F ? (char)text[i] : '?';
+        }
+
+        return new string(chars);
+    }
 
     /// <summary>
     /// Decodes a status reply. Returns false for anything else (another command's reply, a short or damaged report).

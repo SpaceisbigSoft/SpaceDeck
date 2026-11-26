@@ -85,4 +85,70 @@ public class LianLiGalahadProtocolTests
         Assert.Equal(galahad, GalahadProtocol.IsGalahad2((ushort)productId));
         Assert.Equal(coolant, GalahadProtocol.HasCoolantSensor((ushort)productId));
     }
+
+    [Theory]
+    [InlineData(0x81)]
+    [InlineData(0x86)]
+    public void Query_IsReportIdCommandAndZeros_PaddedToTheCollection(int command)
+    {
+        // The dev PC's Galahad II LCD (0x7395, firmware v1.6) has one collection sized for its 1024-byte image reports.
+        var report = GalahadProtocol.Query((byte)command, 1024);
+
+        Assert.Equal(1024, report.Length);
+        Assert.Equal(0x01, report[0]);
+        Assert.Equal(command, report[1]);
+        Assert.All(report[2..], b => Assert.Equal(0, b));
+        Assert.True(GalahadProtocol.IsQuery(report));
+    }
+
+    [Theory]
+    [InlineData(0x8A)] // set pump duty
+    [InlineData(0x8B)] // set fan duty
+    [InlineData(0x83)] // pump lighting
+    [InlineData(0x8E)] // reset
+    [InlineData(0x00)]
+    public void Query_RefusesEveryOtherCommand(int command)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => GalahadProtocol.Query((byte)command, 64));
+    }
+
+    [Fact]
+    public void Query_RefusesAReportShorterThanACommandPacket()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => GalahadProtocol.Query(GalahadProtocol.StatusCommand, 63));
+    }
+
+    [Fact]
+    public void IsQuery_RejectsAnythingWithAPayload()
+    {
+        var withPayload = GalahadProtocol.Query(GalahadProtocol.StatusCommand, 64);
+        withPayload[6] = 0x32; // a duty value: never allowed through
+
+        Assert.False(GalahadProtocol.IsQuery(withPayload));
+    }
+
+    [Fact]
+    public void IsQuery_RejectsSetCommandsAndOtherReportIds()
+    {
+        var setPump = new byte[64];
+        setPump[0] = 0x01;
+        setPump[1] = 0x8A;
+        var imageReport = new byte[1024];
+        imageReport[0] = 0x02;
+        imageReport[1] = 0x81;
+
+        Assert.False(GalahadProtocol.IsQuery(setPump));
+        Assert.False(GalahadProtocol.IsQuery(imageReport));
+        Assert.False(GalahadProtocol.IsQuery(new byte[10]));
+    }
+
+    [Fact]
+    public void FirmwareReply_DecodesItsText()
+    {
+        // "N9,01" as the start of a firmware string, then zeros.
+        var reply = Bytes("018600000005" + "4e392c3031" + new string('0', 106));
+
+        Assert.Equal("N9,01", GalahadProtocol.TryDecodeFirmwareText(reply));
+        Assert.Null(GalahadProtocol.TryDecodeFirmwareText(Bytes(CapturedReply)));
+    }
 }

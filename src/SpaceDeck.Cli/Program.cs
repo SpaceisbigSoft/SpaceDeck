@@ -19,7 +19,7 @@ using SpaceDeck.Sources.Lhm.SystemChecks;
 //   spacedeck-cli fancontrol [list]          [--exe path]   (doesn't need admin)
 //   spacedeck-cli fancontrol switch <config> [--exe path]
 //   spacedeck-cli diff <before.json> <after.json>   (compare hardware reports, e.g. across an LHM update)
-//   spacedeck-cli lianli-listen [--seconds 30] [--out file]   (read-only Lian Li cooler test; doesn't need admin)
+//   spacedeck-cli lianli-listen [--seconds 30] [--out file] [--query]   (Lian Li cooler test; doesn't need admin)
 
 Console.OutputEncoding = Encoding.UTF8;
 
@@ -59,7 +59,7 @@ if (command == "fancontrol")
 if (command == "lianli-listen")
 {
     var seconds = int.TryParse(GetValue("--seconds"), out var listenSeconds) ? Math.Clamp(listenSeconds, 5, 600) : 30;
-    return SpaceDeck.Cli.LianLiListenCommand.Run(seconds, GetValue("--out"));
+    return SpaceDeck.Cli.LianLiListenCommand.Run(seconds, GetValue("--out"), HasFlag("--query"));
 }
 
 if (command is not ("list" or "watch" or "json"))
@@ -174,9 +174,10 @@ static void PrintUsage()
           connect                    Connect to the running collector service and show its live values.
           fancontrol                 Find FanControl and list its saved configs.
           fancontrol switch <name>   Ask the running FanControl to load <name>.json.
-          lianli-listen              Read-only test: listen to the Lian Li Galahad II cooler while FanControl polls
-                                     it, and show what its status replies carry (fan, pump, coolant). Sends nothing
-                                     to the device; doesn't need admin. --seconds <n> (default 30), --out <file>.
+          lianli-listen              Test the Lian Li Galahad II cooler: listen to its replies and show what they
+                                     carry (fan, pump, coolant). Read-only by default; --query also asks the cooler
+                                     itself (status and firmware queries only, after 3 s of silence, never while
+                                     L-Connect runs). --seconds <n> (default 30), --out <file>. No admin needed.
 
         Options:
           --kind voltage,fan,temperature   Only show these sensor kinds (list/watch/connect).

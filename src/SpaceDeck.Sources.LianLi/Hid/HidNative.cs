@@ -7,14 +7,14 @@ namespace SpaceDeck.Sources.LianLi.Hid;
 /// The Windows HID, SetupAPI and file calls SpaceDeck uses to find and listen to HID devices.
 /// </summary>
 /// <remarks>
-/// Read-only on purpose: nothing here can send data to a device (no WriteFile, HidD_SetOutputReport,
-/// HidD_SetFeature or HidD_GetInputReport, which would ask the device for a report). Devices are opened with
-/// GENERIC_READ at most and shared read/write, so the program that drives the device (FanControl's plugin) keeps
-/// working.
+/// The only call that sends anything is <see cref="WriteFile"/>, used by <see cref="HidChannel.Send"/> alone, which
+/// accepts nothing but the cooler's two query packets (<see cref="GalahadProtocol.IsQuery"/>). There is no
+/// HidD_SetOutputReport, HidD_SetFeature or HidD_GetInputReport. Devices are always opened shared read/write.
 /// </remarks>
 internal static class HidNative
 {
     public const uint GenericRead = 0x80000000;
+    public const uint GenericWrite = 0x40000000;
     public const uint FileFlagOverlapped = 0x40000000;
     public const uint DigcfPresent = 0x00000002;
     public const uint DigcfDeviceInterface = 0x00000010;
@@ -114,6 +114,10 @@ internal static class HidNative
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool ReadFile(SafeFileHandle file, IntPtr buffer, uint numberOfBytesToRead, IntPtr numberOfBytesRead, IntPtr overlapped);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool WriteFile(SafeFileHandle file, IntPtr buffer, uint numberOfBytesToWrite, IntPtr numberOfBytesWritten, IntPtr overlapped);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

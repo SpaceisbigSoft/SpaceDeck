@@ -11,8 +11,20 @@ plan, "Licence rule"). Each fact says where it came from.
 | Galahad II LCD (second id) | 0416:7395 | Same family; liquidctl reads firmware string `CA_II-Vision` from it |
 | Galahad II Trinity Performance / Trinity | 0416:7371 / 0416:7373 | Same status command, but no coolant fields |
 
-The command channel is a vendor-defined HID collection (usage page 0xFF1B according to lewisgibson's plugin;
-to confirm per id with `spacedeck-cli lianli-listen`).
+**Dev PC (2026-11-26, `spacedeck-cli lianli-listen`):** the cooler is **0416:7395**, product string
+`LianLi-GA_II-LCD_v1.6`, with **one** HID collection: usage page **0xFF1A**, usage 0x93, input 512 / output 1024 /
+feature 0 bytes. lewisgibson's plugin only opens usage page 0xFF1B, so it doesn't talk to this cooler.
+
+One HID interface carries three report ids (lian-li-linux `hydroshift_lcd/protocol.rs`):
+
+| Report id | Size | Use |
+|---|---|---|
+| 0x01 | 64 | Command packets (status 0x81, firmware 0x86, set pump 0x8A, set fan 0x8B, …) |
+| 0x02 | 1024 | Screen images (JPEG / H.264 chunks) |
+| 0x03 | 512 | Screen data |
+
+Windows sizes the collection by the largest report, so writes are padded with zeros to the output length (1024)
+and reads arrive as 512-byte buffers; the command packet is the first 64 bytes. hidapi pads writes the same way.
 
 ## Frame (64-byte HID report)
 
@@ -26,7 +38,11 @@ to confirm per id with `spacedeck-cli lianli-listen`).
 | 6… | Payload |
 
 Request: `01 81 00 00 00 00` followed by zeros. A query: no implementation sends settings with it. The cooler never
-sends a report on its own; it only answers.
+sends a report on its own; it only answers. Firmware query: `01 86` + zeros, answered with two packets of ASCII
+(liquidctl expects `CA_II-Vision` in it).
+
+**What SpaceDeck sends (owner's rule, 2026-11-26):** only the status (0x81) and firmware (0x86) queries, no payload,
+and only when no other program is polling the cooler. Enforced in code by `GalahadProtocol.IsQuery`.
 
 ## Status reply payload
 
@@ -52,8 +68,7 @@ Example (real capture): `01 81 00 00 00 07 05 a0 0a 6e 01 25 08` = fan 1440 rpm,
 - lewisgibson/FanControl.LianLi `src/FanControl.LianLi/Protocol/Galahad2Protocol.cs` (decodes fan and pump only;
   Trinity note in its issue #30). MIT.
 
-## Still to confirm on the dev PC (0x7391)
+## Still to confirm on the dev PC (0x7395, firmware v1.6)
 
-Payload length 7 and a plausible byte 11 on this id; the collection's usage page and report length; whether a
-second read-only handle receives the replies the FanControl plugin's polling triggers. Run:
-`spacedeck-cli lianli-listen --seconds 30 --out <file>`.
+Payload length 7 and a plausible byte 11 compared with the pump's screen. Run:
+`spacedeck-cli lianli-listen --query --seconds 30 --out <file>`.
