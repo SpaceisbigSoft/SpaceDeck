@@ -1,7 +1,7 @@
 # Plugin pipe — readings from FanControl plugins to the collector
 
 The SpaceDeck collector takes sensor readings from SpaceDeck's own FanControl plugin (the Lian Li plugin,
-`SpaceisbigSoft/FanControl.LianLi`) over a second named pipe. Readings only: nothing on this pipe is ever a command,
+`SpaceisbigSoft/SpaceDeck.FanControl.LianLi`) over a second named pipe. Readings only: nothing on this pipe is ever a command,
 and the collector never acts on what it receives except to show it. SpaceDeck's app and collector stay read-only for
 fans and pumps; FanControl, through the plugin, does all fan control.
 
