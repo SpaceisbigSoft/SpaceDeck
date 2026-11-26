@@ -145,10 +145,12 @@ public static class FanControlLocator
     /// <summary>
     /// Null if the exe and its folder are owned by this user, SYSTEM, Administrators or TrustedInstaller and no other
     /// account can modify them (<see cref="FirstUntrustedWriter"/>); otherwise why not, for the user. Anything that can't
-    /// be read counts as untrusted.
+    /// be read counts as untrusted. Public so the collector applies the same rule to the FanControl that connects to its
+    /// plugin pipe (there "this user" is the service account, SYSTEM).
     /// </summary>
-    private static string? UntrustedReason(string exePath)
+    public static string? UntrustedReason(string exePath)
     {
+        ArgumentNullException.ThrowIfNull(exePath);
         try
         {
             using var me = WindowsIdentity.GetCurrent();
@@ -272,7 +274,11 @@ public static class FanControlLocator
         }
     }
 
-    private static string? TryGetImagePath(int processId)
+    /// <summary>
+    /// The full image path of process <paramref name="processId"/>, or null if it can't be opened. Needs only limited
+    /// query rights, so it works on elevated processes and, from the collector service, on other users' processes.
+    /// </summary>
+    public static string? TryGetImagePath(int processId)
     {
         const uint ProcessQueryLimitedInformation = 0x1000;
         var handle = OpenProcess(ProcessQueryLimitedInformation, false, (uint)processId);

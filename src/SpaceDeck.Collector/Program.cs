@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using SpaceDeck.Collector;
 using SpaceDeck.Collector.Logging;
 using SpaceDeck.Collector.Pipe;
+using SpaceDeck.Collector.Plugins;
 using SpaceDeck.Collector.Polling;
 using SpaceDeck.Collector.Storage;
 using SpaceDeck.Sources.Lhm.SystemChecks;
@@ -116,7 +117,22 @@ if (collectorOptions.DiskHistoryEnabled && !isReplay && dataDirectoryUsable)
 
 var persistBlockedReason = dataDirectoryProblem is null ? null : $"Settings can't be saved: {dataDirectoryProblem}";
 builder.Services.AddSingleton(new SensorHub(collectorOptions.HistoryCapacity(), collectorOptions.PollIntervalMs, disk));
-builder.Services.AddSingleton<ISensorSourceFactory, DefaultSensorSourceFactory>();
+
+// Readings from SpaceDeck's FanControl plugin (docs/PLUGIN-PIPE.md). One bridge source for the collector's lifetime,
+// shared by the plugin pipe server (which feeds it) and the source factory (which hands the same instance to every
+// re-open of the poll loop's sources), so a sensor-group change neither loses its catalog nor the connected plugin.
+// A replay plays its recording only: no plugin pipe, no bridge.
+if (!isReplay)
+{
+    builder.Services.AddSingleton(_ => new PluginBridgeSource());
+    builder.Services.AddSingleton<IPluginClientVerifier, FanControlClientVerifier>();
+    builder.Services.AddHostedService(sp => new PluginPipeServer(
+        sp.GetRequiredService<PluginBridgeSource>(),
+        sp.GetRequiredService<IPluginClientVerifier>(),
+        sp.GetRequiredService<ILogger<PluginPipeServer>>()));
+}
+
+builder.Services.AddSingleton<ISensorSourceFactory>(sp => new DefaultSensorSourceFactory(sp.GetService<PluginBridgeSource>()));
 builder.Services.AddHostedService(sp => new PollingService(
     sp.GetRequiredService<SensorHub>(),
     sp.GetRequiredService<ISensorSourceFactory>(),

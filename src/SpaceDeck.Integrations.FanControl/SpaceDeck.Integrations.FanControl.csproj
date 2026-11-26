@@ -3,7 +3,8 @@
   <!--
     Talks to the separately installed FanControl app (https://github.com/Rem0o/FanControl.Releases).
     SpaceDeck never writes to fans itself: it only asks FanControl to switch configuration files.
-    Used by the UI app (runs in the user's session), not the collector service.
+    Used by the UI app (runs in the user's session). The collector service uses only FanControlLocator's checks, to
+    verify the FanControl that connects to its plugin pipe.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>

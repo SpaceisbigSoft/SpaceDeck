@@ -14,7 +14,10 @@ fans and pumps; FanControl, through the plugin, does all fan control.
   service can overlap briefly while control moves between them).
 - **The collector checks the client** before reading anything: `GetNamedPipeClientProcessId`, then the process image
   must be `FanControl.exe` or `FanControl.Service.exe` in a folder that passes the same "no untrusted writer" rule as
-  FanControl auto-detection (`FanControlLocator`). Anything else is disconnected and logged once.
+  FanControl auto-detection (`FanControlLocator`). Anything else is disconnected and logged once. In the service,
+  "this user" in that rule is SYSTEM: the exe and its folder must be owned by SYSTEM, Administrators or
+  TrustedInstaller and writable by no one else (e.g. under Program Files). A portable FanControl unzipped into a user's
+  own folder (Desktop, Downloads) is owned by that user and is turned away.
 - **The plugin checks the server**: it connects with the lowest impersonation level (identification) and checks with
   `GetNamedPipeServerProcessId` that the server is the `SpaceDeckCollector` service process.
 - The plugin connects from its own background thread, never from FanControl's calls; connect timeout 250 ms, backoff
@@ -24,7 +27,9 @@ fans and pumps; FanControl, through the plugin, does all fan control.
 
 UTF-8 JSON, one object per line (`\n`). No BOM. A line is at most 64 KiB; a longer one disconnects the client.
 
-Every object has `"t"` (its type). Unknown types are ignored; unknown fields are ignored.
+Every object has `"t"` (its type); a line that isn't a JSON object with a string `"t"` disconnects the client. Unknown
+types are ignored (even before `hello`); unknown fields are ignored; blank lines are ignored. `catalog` or `values`
+before `hello`, and `values` before the first `catalog`, disconnect the client.
 
 ### `hello` — first line after connecting
 
@@ -52,9 +57,12 @@ Every object has `"t"` (its type). Unknown types are ignored; unknown fields are
 
 - `id`: the plugin's own sensor id (FanControl's, without the plugin Name), 1–128 characters from
   `A–Z a–z 0–9 / . _ : -`. Stable across restarts; the collector publishes it as `lianli:/<id>`.
-- `name`: 1–64 printable characters.
+- `name`: 1–64 printable characters (counted as Unicode characters, so an emoji counts once), not all blank. Control
+  and format characters (bidirectional overrides, zero-width characters), line separators and lone surrogates make
+  the name invalid.
 - Hardware `kind`: `cooler` or `fans` (anything else → Other).
-- Sensor `kind`: `temperature` (°C), `fan` (rpm) or `control` (%, the duty FanControl is applying).
+- Sensor `kind`: `temperature` (°C), `fan` (rpm) or `control` (%, the duty FanControl is applying). Any other sensor
+  kind makes the catalog invalid (the kind decides the unit and the valid range).
 - At most 32 hardware entries and 512 sensors. Every sensor's `hardware` must name a listed hardware id; duplicates
   are an error. An invalid catalog disconnects the client.
 
@@ -68,15 +76,19 @@ Every object has `"t"` (its type). Unknown types are ignored; unknown fields are
 - Numbers must be finite and in range for the kind: temperature −50…150, fan 0…20000, control 0…100. An
   out-of-range number is stored as `null` (not a disconnect: a cooler's odd reading shouldn't drop every sensor).
 - A count that doesn't match the catalog disconnects the client.
-- More than 5 lines a second disconnects the client.
+- More than 5 lines a second disconnects the client: on average, with bursts of up to 10 lines allowed, because lines
+  queue in the pipe while the collector checks a new client (a token bucket: 10 lines, refilled at 5 a second).
 
 ## Collector behaviour
 
 - Source name `lianli` (`SourceStatus` and Diagnostics show it). Before any plugin has connected: `DeviceNotFound`,
-  "FanControl's Lian Li plugin isn't connected".
+  "FanControl's Lian Li plugin isn't connected". The same once the feeding client disconnects; `Ok` while a client
+  that has sent a valid catalog is connected (even if its values have gone stale).
 - Values go blank 3 s after the last `values` line, and on disconnect. The catalog is kept for the collector's
   lifetime (sensors that are gone read blank), so dashboards stay laid out across plugin restarts; a new catalog
-  adds sensors.
+  adds sensors. An id keeps its first name, kind and hardware until the collector restarts. Over the collector's
+  lifetime at most 128 hardware entries and 2048 sensors are kept; sensors past that aren't shown.
 - One client feeds the source at a time: a new connection replaces the old one (the newest is the live FanControl).
-- Read timeout 30 s with no line at all disconnects (the plugin sends `values` every second).
+  It takes over when its first valid catalog arrives, and the older connection is closed then.
+- Read timeout 30 s with no complete line disconnects (the plugin sends `values` every second).
 - Nothing received is ever used for anything but display, history and alerts.

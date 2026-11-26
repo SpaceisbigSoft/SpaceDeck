@@ -121,7 +121,9 @@ public sealed partial class PipeServer : BackgroundService
         }
     }
 
-    internal static NamedPipeServerStream CreateServer(string pipeName, bool firstInstance)
+    /// <summary>Creates one instance of a collector pipe with the access described on the class (the plugin pipe uses it too, with fewer instances).</summary>
+    internal static NamedPipeServerStream CreateServer(string pipeName, bool firstInstance,
+        int maxInstances = NamedPipeServerStream.MaxAllowedServerInstances)
     {
         var security = new PipeSecurity();
         security.AddAccessRule(new PipeAccessRule(
@@ -150,7 +152,7 @@ public sealed partial class PipeServer : BackgroundService
         return NamedPipeServerStreamAcl.Create(
             pipeName,
             PipeDirection.InOut,
-            NamedPipeServerStream.MaxAllowedServerInstances,
+            maxInstances,
             PipeTransmissionMode.Byte,
             options,
             inBufferSize: 0,

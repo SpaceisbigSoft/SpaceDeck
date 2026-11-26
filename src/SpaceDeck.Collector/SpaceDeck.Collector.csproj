@@ -16,6 +16,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SpaceDeck.Core\SpaceDeck.Core.csproj" />
     <ProjectReference Include="..\SpaceDeck.Sources.Lhm\SpaceDeck.Sources.Lhm.csproj" />
+    <!-- FanControlLocator's "no untrusted writer" rule, applied to the FanControl that connects to the plugin pipe. -->
+    <ProjectReference Include="..\SpaceDeck.Integrations.FanControl\SpaceDeck.Integrations.FanControl.csproj" />
   </ItemGroup>
 
   <ItemGroup>
