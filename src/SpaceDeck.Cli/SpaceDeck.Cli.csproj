@@ -12,6 +12,7 @@
     <ProjectReference Include="..\SpaceDeck.Core\SpaceDeck.Core.csproj" />
     <ProjectReference Include="..\SpaceDeck.Sources.Lhm\SpaceDeck.Sources.Lhm.csproj" />
     <ProjectReference Include="..\SpaceDeck.Integrations.FanControl\SpaceDeck.Integrations.FanControl.csproj" />
+    <ProjectReference Include="..\SpaceDeck.Sources.LianLi\SpaceDeck.Sources.LianLi.csproj" />
   </ItemGroup>
 
 </Project>

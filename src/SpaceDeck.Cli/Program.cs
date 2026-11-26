@@ -19,10 +19,11 @@ using SpaceDeck.Sources.Lhm.SystemChecks;
 //   spacedeck-cli fancontrol [list]          [--exe path]   (doesn't need admin)
 //   spacedeck-cli fancontrol switch <config> [--exe path]
 //   spacedeck-cli diff <before.json> <after.json>   (compare hardware reports, e.g. across an LHM update)
+//   spacedeck-cli lianli-listen [--seconds 30] [--out file]   (read-only Lian Li cooler test; doesn't need admin)
 
 Console.OutputEncoding = Encoding.UTF8;
 
-string[] optionsWithValues = ["--interval", "--kind", "--exe", "--pipe"];
+string[] optionsWithValues = ["--interval", "--kind", "--exe", "--pipe", "--seconds", "--out"];
 var positionals = Positionals();
 var command = positionals.FirstOrDefault()?.ToLowerInvariant() ?? "list";
 var options = new LhmOptions
@@ -53,6 +54,12 @@ if (command == "diff")
 if (command == "fancontrol")
 {
     return FanControlCommand(positionals.Skip(1).ToList(), GetValue("--exe"));
+}
+
+if (command == "lianli-listen")
+{
+    var seconds = int.TryParse(GetValue("--seconds"), out var listenSeconds) ? Math.Clamp(listenSeconds, 5, 600) : 30;
+    return SpaceDeck.Cli.LianLiListenCommand.Run(seconds, GetValue("--out"));
 }
 
 if (command is not ("list" or "watch" or "json"))
@@ -167,6 +174,9 @@ static void PrintUsage()
           connect                    Connect to the running collector service and show its live values.
           fancontrol                 Find FanControl and list its saved configs.
           fancontrol switch <name>   Ask the running FanControl to load <name>.json.
+          lianli-listen              Read-only test: listen to the Lian Li Galahad II cooler while FanControl polls
+                                     it, and show what its status replies carry (fan, pump, coolant). Sends nothing
+                                     to the device; doesn't need admin. --seconds <n> (default 30), --out <file>.
 
         Options:
           --kind voltage,fan,temperature   Only show these sensor kinds (list/watch/connect).

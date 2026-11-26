@@ -20,6 +20,8 @@
     <ProjectReference Include="..\..\src\SpaceDeck.Collector\SpaceDeck.Collector.csproj" />
     <!-- FanControlLocator's permission rule (pure, Windows-only types) is tested here: the only Windows test project. -->
     <ProjectReference Include="..\..\src\SpaceDeck.Integrations.FanControl\SpaceDeck.Integrations.FanControl.csproj" />
+    <!-- Lian Li decoders (pure, in a Windows-only project because the HID reader lives beside them). -->
+    <ProjectReference Include="..\..\src\SpaceDeck.Sources.LianLi\SpaceDeck.Sources.LianLi.csproj" />
   </ItemGroup>
 
 </Project>
