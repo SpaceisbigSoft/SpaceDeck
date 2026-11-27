@@ -20,6 +20,7 @@ namespace SpaceDeck.Core.Protocol;
 [Union(6, typeof(SourceStatusMessage))]
 [Union(7, typeof(CollectorStatusMessage))]
 [Union(8, typeof(ResetMinMaxRequest))]
+[Union(9, typeof(ScreenFrameRequest))]
 public interface IProtocolMessage;
 
 public static class ProtocolInfo
@@ -28,14 +29,18 @@ public static class ProtocolInfo
     /// 2: SetConfigRequest gained ControllersEnabled/Persist; CollectorStatusMessage added.
     /// 3: long history (HistoryRequest range/MaxPoints, HistoryResponse Min/Max/NextFrom), ResetMinMaxRequest,
     ///    CollectorStatusMessage StartedUnixMs/MinMaxResetUnixMs/DiskHistory.
+    /// 4: ScreenFrameRequest and HardwareInfo.Screen (cooler screens, docs/SCREEN-PIPE.md).
     /// </summary>
-    public const int Version = 3;
+    public const int Version = 4;
 
     /// <summary>First version with CollectorStatusMessage and SetConfigRequest Persist/ControllersEnabled.</summary>
     public const int SettingsVersion = 2;
 
     /// <summary>First version with long history (range/MaxPoints), ResetMinMaxRequest and the disk-history status.</summary>
     public const int LongHistoryVersion = 3;
+
+    /// <summary>First version with cooler screens (HardwareInfo.Screen, ScreenFrameRequest).</summary>
+    public const int ScreenVersion = 4;
 
     public const string PipeName = "SpaceDeck";
 }
@@ -95,6 +100,17 @@ public sealed record HistoryResponse(
 [MessagePackObject]
 public sealed record ResetMinMaxRequest(
     [property: Key(0)] string[]? SensorIds) : IProtocolMessage;
+
+/// <summary>
+/// Client → server (v4): one picture for a hardware screen (<c>docs/SCREEN-PIPE.md</c>). <see cref="HardwareId"/> is a
+/// catalog hardware id with a <see cref="HardwareInfo.Screen"/>; <see cref="Jpeg"/> is a baseline or progressive JPEG of
+/// exactly that size, at most 256 KiB. The collector keeps only the newest frame per screen, at most 2 a second, and
+/// passes it on once; frames it can't use are dropped (counted in the source status), never answered.
+/// </summary>
+[MessagePackObject]
+public sealed record ScreenFrameRequest(
+    [property: Key(0)] string HardwareId,
+    [property: Key(1)] byte[] Jpeg) : IProtocolMessage;
 
 /// <summary>
 /// Client → server: change collector settings. Null fields are left unchanged. With <see cref="Persist"/> the
