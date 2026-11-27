@@ -28,6 +28,8 @@ SpaceDeck is PawnIO; you don't need the LibreHardwareMonitor app or HWiNFO.
   closed. CSV export and recording sessions with summaries are included.
 - **Fan profiles and automation:** switch FanControl configs by hand (window, tray or phone) or with rules, such as
   "while a game runs" or "CPU above 80 °C for 30 s". SpaceDeck never writes to fans itself.
+- **Cooler screen:** show a dashboard on the Lian Li GA II LCD's own 480×480 screen, through FanControl and
+  SpaceDeck's Lian Li plugin (off until you turn it on in Settings).
 - **Phone and tablet dashboard:** view your dashboards live in a browser on your home network (phone, tablet, Steam
   Deck), paired with a PIN.
 - **16 skins**, °C/°F, 12/24-hour clock, backup and restore, and no telemetry.

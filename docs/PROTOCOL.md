@@ -12,7 +12,7 @@ How the UI (or any client) talks to the collector service. Implementation: `src/
   - **Replay pipe** (`SpaceDeck-replay-<pid>`): the pid equals the replay collector the app itself started. Any other pipe name is refused.
   - Anything that can't be checked counts as a mismatch. On a mismatch the client disconnects without reading a frame, shows "Another program is answering on SpaceDeck's connection — not the SpaceDeck collector service. Data is not shown." (banner and Diagnostics → Connection), logs it once to `%AppData%\SpaceDeck\app-errors.log`, and retries on the normal 2 s schedule, so the real service is picked up once it starts. `spacedeck-cli connect --no-verify` skips the check (e.g. to look at a replay pipe).
 - Up to 32 clients at once; a further client is disconnected right after connecting until a slot frees up.
-- Clients are untrusted. The collector drops a client that sends a frame over 1 MiB or doesn't read a frame within 30 s (it stopped reading, and its answers would pile up). At most 8 history requests per client are answered at a time; while 8 answers are outstanding the collector stops reading that client's requests until one is sent (the client's writes wait; it isn't dropped). Across all clients at most 16 answers are being prepared or waiting to be sent; further requests wait their turn (they are not dropped).
+- Clients are untrusted. The collector drops a client that sends a frame over 1 MiB (a cooler screen frame is at most 256 KiB of JPEG) or doesn't read a frame within 30 s (it stopped reading, and its answers would pile up). At most 8 history requests per client are answered at a time; while 8 answers are outstanding the collector stops reading that client's requests until one is sent (the client's writes wait; it isn't dropped). Across all clients at most 16 answers are being prepared or waiting to be sent; further requests wait their turn (they are not dropped).
 
 ## Framing
 
@@ -41,8 +41,9 @@ Union keys and field keys are wire format: **append only, never renumber.** Bump
 | 6 | `SourceStatusMessage(Sources[])` | server → client | After Hello, and whenever a source's status or message changes. |
 | 7 | `CollectorStatusMessage(PollIntervalMs, StorageEnabled, NetworkEnabled, ControllersEnabled, HistorySeconds, IsService, IsElevated, ConfigPath, ConfigError?, StartedUnixMs, MinMaxResetUnixMs?, DiskHistory)` | server → client | After Hello, after every applied `SetConfigRequest` and after a min/max reset. `ConfigError` is set when saving `collector.json` failed. *(v2; last three fields v3)* |
 | 8 | `ResetMinMaxRequest(SensorIds[]?)` | client → server | Restart min/max for these sensors (null = all; that also sets `MinMaxResetUnixMs`). Requests arriving between two polls are merged (at most 10,000 ids). *(v3)* |
+| 9 | `ScreenFrameRequest(HardwareId, Jpeg)` | client → server | One picture for a cooler screen (`docs/SCREEN-PIPE.md`). `HardwareId` is a catalog hardware id with a `Screen` (from SpaceDeck's FanControl plugin, e.g. `lianli:/LianLi/0`); `Jpeg` is 1 byte – 256 KiB, starts `FF D8`, ends `FF D9`, and its frame header (SOF) has the screen's width and height (the collector checks only those, it never decodes). At most 2 frames a second per screen; the collector keeps only the newest per screen, passes each on once to `\\.\pipe\SpaceDeck.Screen`, and drops one it couldn't pass on within 5 s. Frames that don't qualify are dropped and counted, never answered. *(v4)* |
 
-**Versions:** v1 = keys 0–6. v2 adds key 7 and the `ControllersEnabled`/`Persist` fields on key 5. v3 adds key 8 and the long-history fields. The app compares `HelloMessage.ProtocolVersion` with its own and warns on the Diagnostics page. Since v3, `FrameCodec.ReadAsync` returns `UnknownMessage` for a frame it can't decode (unknown union key from a newer peer) and readers skip it, so mismatched versions no longer drop the connection. (A v2 app still can't read v3-only messages, but the server never sends key 8.)
+**Versions:** v1 = keys 0–6. v2 adds key 7 and the `ControllersEnabled`/`Persist` fields on key 5. v3 adds key 8 and the long-history fields. v4 adds key 9 and `HardwareInfo.Screen`. The app compares `HelloMessage.ProtocolVersion` with its own and warns on the Diagnostics page. Since v3, `FrameCodec.ReadAsync` returns `UnknownMessage` for a frame it can't decode (unknown union key from a newer peer) and readers skip it, so mismatched versions no longer drop the connection. (A v2 app still can't read v3-only messages, but the server never sends key 8.)
 
 ## Disk history (v3)
 
@@ -61,6 +62,16 @@ Union keys and field keys are wire format: **append only, never renumber.** Bump
 1. `Hello` is first, followed by `SourceStatus` and `Catalog`.
 2. A `Values` frame is only sent after the `Catalog` with the same version. **Clients must ignore `Values` whose `CatalogVersion` doesn't match their current catalog.**
 3. Control messages (Hello, Catalog, SourceStatus, HistoryResponse) are never dropped. If a client reads slowly, older `Values` frames are dropped and only the newest is sent.
+
+### Hardware screens (v4)
+
+`HardwareInfo` has a sixth field, `Screen` (key 5): `ScreenInfo(Width, Height)` in pixels, or null. The collector sets it for
+hardware SpaceDeck's FanControl plugin lists with a `screen` (`docs/SCREEN-PIPE.md` §1; 1–1024 per side). Older clients
+skip the extra field. A replay never has screens.
+
+The collector reports the screen pipe as one more `SourceStatusEntry`, `lianli-screen` (only once a screen is known):
+`Ok` with "Screen pipe connected · N frames sent · M dropped" while the plugin is connected, `DeviceNotFound` otherwise.
+It isn't a sensor source; the app shows it in Diagnostics, not as a banner.
 
 ### Sensor identity
 
@@ -138,4 +149,7 @@ dotnet run --project src/SpaceDeck.Collector
 # In another (normal) terminal:
 dotnet run --project src/SpaceDeck.Cli -- connect
 dotnet run --project src/SpaceDeck.Cli -- connect --kind fan,control
+
+# A test picture on a cooler screen (FanControl with SpaceDeck's Lian Li plugin running; "?" lists the screens):
+dotnet run --project src/SpaceDeck.Cli -- screen-test --hardware lianli:/LianLi/0 --seconds 30
 ```
