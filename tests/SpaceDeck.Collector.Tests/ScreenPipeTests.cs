@@ -154,7 +154,11 @@ public sealed class ScreenPipeTests : IAsyncLifetime
         // Nothing more is sent without a new frame (never a repeat).
         using var quiet = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
         quiet.CancelAfter(TimeSpan.FromMilliseconds(600));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await pipe.ReadAsync(new byte[1], quiet.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            var read = await pipe.ReadAsync(new byte[1], quiet.Token);
+            Assert.Fail($"The server sent {read} more byte(s) without a new frame.");
+        });
     }
 
     [Fact]
