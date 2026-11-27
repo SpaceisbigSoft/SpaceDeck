@@ -31,7 +31,8 @@ SpaceDeck is PawnIO; you don't need the LibreHardwareMonitor app or HWiNFO.
 - **Cooler screen:** show a dashboard, a picture, an animated GIF, a video (whatever Windows plays) or a slideshow on
   the Lian Li GA II LCD's own 480×480 screen, smooth at up to 30 frames a second (24 by default), through FanControl
   and SpaceDeck's Lian Li plugin (off until you turn it on in Settings). Arrange its dashboard like any other, in a
-  square editor with a live preview; the built-in layout fills the screen with large numbers.
+  square editor with a live preview; the built-in layout fills the screen with large numbers. The plugin also lets
+  [OpenRGB](https://openrgb.org) set the cooler's screen ring.
 - **Phone and tablet dashboard:** view your dashboards live in a browser on your home network (phone, tablet, Steam
   Deck), paired with a PIN.
 - **16 skins**, °C/°F, 12/24-hour clock, backup and restore, and no telemetry.
@@ -52,6 +53,8 @@ SpaceDeck is PawnIO; you don't need the LibreHardwareMonitor app or HWiNFO.
    fix where it can.
 4. *(Optional)* Install [FanControl](https://github.com/Rem0o/FanControl.Releases) and save one config per fan
    profile (File → Save as…). SpaceDeck finds it and lists the profiles.
+5. *(Optional, Lian Li GA II LCD)* For the cooler screen and screen ring, unzip `FanControl.LianLi-SpaceDeck-<version>.zip`
+   from the same release and add `FanControl.LianLi-SpaceDeck.dll` with FanControl's **Install plugin** button.
 
 **Requirements:** Windows 10 (2004 or later) or Windows 11, x64, on real hardware. Virtual machines expose few or no
 sensors.
