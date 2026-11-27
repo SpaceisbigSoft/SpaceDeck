@@ -17,6 +17,7 @@ public sealed partial class ScreenRelay
     private readonly PluginBridgeSource _bridge;
     private readonly ILogger<ScreenRelay> _logger;
     private readonly ScreenFrameGate _gate;
+    private readonly ScreenFrameRate _rate;
     private readonly Lock _logGate = new();
     private readonly HashSet<string> _loggedReasons = new(StringComparer.Ordinal);
     private long _sent;
@@ -30,6 +31,7 @@ public sealed partial class ScreenRelay
         _bridge = bridge;
         _logger = logger;
         _gate = new ScreenFrameGate(timeProvider);
+        _rate = new ScreenFrameRate(timeProvider);
         Mailbox = new ScreenFrameMailbox(timeProvider);
     }
 
@@ -40,7 +42,7 @@ public sealed partial class ScreenRelay
     public long Sent => Interlocked.Read(ref _sent);
 
     /// <summary>
-    /// Frames that didn't reach the plugin: refused (unknown screen, wrong size or markers, over 2 a second) or dropped
+    /// Frames that didn't reach the plugin: refused (unknown screen, wrong size or markers, over 30 a second) or dropped
     /// while waiting (a newer one came first, or 5 s passed).
     /// </summary>
     public long Dropped => Interlocked.Read(ref _refused) + Mailbox.Dropped;
@@ -77,7 +79,7 @@ public sealed partial class ScreenRelay
 
         if (!_gate.TryAccept(screenId))
         {
-            // Over 2 a second: expected now and then (a second app, a slow tick catching up), so counted but not logged.
+            // Over 30 a second: expected now and then (a second app, a slow tick catching up), so counted but not logged.
             Interlocked.Increment(ref _refused);
             return;
         }
@@ -90,11 +92,19 @@ public sealed partial class ScreenRelay
 
     internal void SetConnected(bool connected) => _connected = connected;
 
-    internal void CountSent() => Interlocked.Increment(ref _sent);
+    internal void CountSent()
+    {
+        Interlocked.Increment(ref _sent);
+        _rate.Count();
+    }
+
+    /// <summary>Frames a second written to the plugin over the last <see cref="ScreenFrameRate.Window"/>.</summary>
+    public double FramesPerSecond => _rate.PerSecond();
 
     /// <summary>
     /// The status entry next to the <c>lianli</c> source: shown once the plugin has listed a screen or the pipe was used,
-    /// so PCs without a screen cooler see nothing new. Ok while a plugin is connected; DeviceNotFound otherwise.
+    /// so PCs without a screen cooler see nothing new. Ok while a plugin is connected; DeviceNotFound otherwise. The counts
+    /// are <see cref="ScreenPipeCounts.Format"/>'s, with the frames a second over the last few seconds.
     /// </summary>
     public IEnumerable<SourceStatusEntry> StatusEntries()
     {
@@ -105,7 +115,7 @@ public sealed partial class ScreenRelay
             yield break;
         }
 
-        var counts = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{Sent} frames sent · {Dropped} dropped");
+        var counts = new ScreenPipeCounts(Sent, Dropped, FramesPerSecond).Format();
         yield return connected
             ? new SourceStatusEntry(ScreenPipeProtocol.StatusSource, SourceStatus.Ok, $"Screen pipe connected · {counts}")
             : new SourceStatusEntry(ScreenPipeProtocol.StatusSource, SourceStatus.DeviceNotFound,

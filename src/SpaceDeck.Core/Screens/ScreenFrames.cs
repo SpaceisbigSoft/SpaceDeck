@@ -11,8 +11,11 @@ public static class ScreenFrameRules
     /// <summary>Largest JPEG, in bytes (also the screen pipe's payload limit).</summary>
     public const int MaxJpegBytes = 256 * 1024;
 
-    /// <summary>Frames a second per screen; more are dropped, not queued.</summary>
-    public const int MaxFramesPerSecond = 2;
+    /// <summary>
+    /// Frames a second per screen; more are dropped, not queued. 30 is enough for smooth motion and what SpaceDeck's
+    /// FanControl plugin sends to a cooler at most.
+    /// </summary>
+    public const int MaxFramesPerSecond = 30;
 
     /// <summary>A frame not passed on within this long is dropped: the cooler must never show a stale picture late.</summary>
     public static readonly TimeSpan MaxAge = TimeSpan.FromSeconds(5);
@@ -167,6 +170,67 @@ public sealed class ScreenFrameGate
             Array.Copy(recent, 1, recent, 0, recent.Length - 1);
             recent[^1] = now;
             return true;
+        }
+    }
+}
+
+/// <summary>
+/// Frames a second over the last <see cref="Window"/>, for the screen pipe's status line: each counted frame is kept by its
+/// time until it is older than the window. Thread-safe.
+/// </summary>
+public sealed class ScreenFrameRate
+{
+    /// <summary>How far back the rate looks: long enough to smooth out a frame's jitter, short enough to follow a change.</summary>
+    public static readonly TimeSpan Window = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Times kept at most: the screen pipe writes at most 30 messages a second, 150 in a window, so the cap only bounds
+    /// memory if that ever changes.
+    /// </summary>
+    private const int MaxKept = 1024;
+
+    private readonly TimeProvider _time;
+    private readonly Lock _gate = new();
+    private readonly Queue<long> _counted = new();
+
+    public ScreenFrameRate(TimeProvider? timeProvider = null)
+    {
+        _time = timeProvider ?? TimeProvider.System;
+    }
+
+    /// <summary>A frame went out now.</summary>
+    public void Count()
+    {
+        var now = _time.GetTimestamp();
+        lock (_gate)
+        {
+            Forget(now);
+            if (_counted.Count >= MaxKept)
+            {
+                _counted.Dequeue();
+            }
+
+            _counted.Enqueue(now);
+        }
+    }
+
+    /// <summary>The frames counted within the last <see cref="Window"/>, a second.</summary>
+    public double PerSecond()
+    {
+        var now = _time.GetTimestamp();
+        lock (_gate)
+        {
+            Forget(now);
+            return _counted.Count / Window.TotalSeconds;
+        }
+    }
+
+    /// <summary>Drops the times that are a whole window old or older. Caller holds <see cref="_gate"/>.</summary>
+    private void Forget(long now)
+    {
+        while (_counted.Count > 0 && _time.GetElapsedTime(_counted.Peek(), now) >= Window)
+        {
+            _counted.Dequeue();
         }
     }
 }

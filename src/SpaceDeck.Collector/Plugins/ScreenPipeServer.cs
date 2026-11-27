@@ -14,7 +14,7 @@ namespace SpaceDeck.Collector.Plugins;
 /// a folder no untrusted account can write to) before a byte is written. One client at a time: a newly verified connection
 /// replaces the older one (the newest is the live FanControl).</para>
 /// <para>Frames come from <see cref="ScreenRelay.Mailbox"/>: each is written once, the newest per screen, never one older
-/// than 5 s, and at most one message every <see cref="MinMessageGap"/> in all (the plugin disconnects above 4 a second on
+/// than 5 s, and at most one message every <see cref="MinMessageGap"/> in all (the plugin disconnects above 30 a second on
 /// average). A client that doesn't take a frame within <see cref="WriteTimeout"/>, or writes anything, is disconnected.</para>
 /// </remarks>
 public sealed partial class ScreenPipeServer : BackgroundService
@@ -24,8 +24,14 @@ public sealed partial class ScreenPipeServer : BackgroundService
     /// <summary>A frame not taken by the client within this long ends the connection (the plugin reads all the time).</summary>
     internal static readonly TimeSpan WriteTimeout = TimeSpan.FromSeconds(10);
 
-    /// <summary>At most 4 messages a second, evenly: under the plugin's limit (4 a second on average, bursts of 8).</summary>
-    internal static readonly TimeSpan MinMessageGap = TimeSpan.FromMilliseconds(250);
+    /// <summary>
+    /// Messages a second at most, in all: one screen's frames at their own limit, and within the plugin's (30 a second on
+    /// average, bursts of 60).
+    /// </summary>
+    internal const int MaxMessagesPerSecond = ScreenFrameRules.MaxFramesPerSecond;
+
+    /// <summary>At most <see cref="MaxMessagesPerSecond"/>, evenly; in ticks, so a thirtieth of a second isn't rounded.</summary>
+    internal static readonly TimeSpan MinMessageGap = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / MaxMessagesPerSecond);
 
     private const int MaxLoggedReasons = 1000;
 

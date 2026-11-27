@@ -104,7 +104,7 @@ public sealed record ResetMinMaxRequest(
 /// <summary>
 /// Client → server (v4): one picture for a hardware screen (<c>docs/SCREEN-PIPE.md</c>). <see cref="HardwareId"/> is a
 /// catalog hardware id with a <see cref="HardwareInfo.Screen"/>; <see cref="Jpeg"/> is a baseline or progressive JPEG of
-/// exactly that size, at most 256 KiB. The collector keeps only the newest frame per screen, at most 2 a second, and
+/// exactly that size, at most 256 KiB. The collector keeps only the newest frame per screen, at most 30 a second, and
 /// passes it on once; frames it can't use are dropped (counted in the source status), never answered.
 /// </summary>
 [MessagePackObject]

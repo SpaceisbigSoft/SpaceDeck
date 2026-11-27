@@ -58,7 +58,11 @@ Dark HUD, Nord, Dracula, Gruvbox, Cyberpunk, Synthwave, Red Team, OLED black, Pa
 ## H2. Cooler screen (Lian Li GA II LCD, FanControl with SpaceDeck's Lian Li plugin with screen support)
 - [ ] `spacedeck-cli screen-test --hardware ?` lists `lianli:/LianLi/0  … 480 × 480`; `--hardware lianli:/LianLi/0`
       shows the colour bars and the time on the cooler, the frame number counting up; ~20 s after it ends the cooler
-      shows its own screen again. Diagnostics → "Cooler screen pipe" counts the frames.
+      shows its own screen again. Diagnostics → "Cooler screen pipe" counts the frames and shows the frames a second.
+- [ ] `screen-test --hardware lianli:/LianLi/0 --fps 30 --seconds 60`: the orange bar sweeps across the colour bars,
+      the line printed each second shows the achieved fps and the collector's drops, and `plugin.log` gets one
+      "screen frames in the last minute" line (sent, dropped, write ms, size). Fan and pump control stay on their
+      curves throughout. `--fps 0` and `--fps 31` are refused.
 - [ ] Settings → Cooler screen: the cooler is listed, Off. Turning it on makes the "Cooler screen" dashboard and the
       preview and the cooler show it within the interval; rotation, interval and quality apply to the next frame.
 - [ ] Turning it off, closing SpaceDeck and stopping the collector service each bring the cooler's own screen back

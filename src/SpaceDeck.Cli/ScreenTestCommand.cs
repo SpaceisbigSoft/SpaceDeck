@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipes;
 using SpaceDeck.Core.Model;
@@ -7,20 +8,34 @@ using SpaceDeck.Core.Screens;
 namespace SpaceDeck.Cli;
 
 /// <summary>
-/// <c>spacedeck-cli screen-test --hardware lianli:/LianLi/0 [--seconds 30]</c>: sends a test picture (colour bars, the
-/// time, a frame number) to a cooler screen through the collector, once a second, the way the app does
-/// (<c>docs/SCREEN-PIPE.md</c>). Tests the whole path (collector, screen pipe, FanControl plugin, cooler) without the app.
-/// When it ends, the cooler shows its own screen again after about 20 seconds.
+/// <c>spacedeck-cli screen-test --hardware lianli:/LianLi/0 [--seconds 30] [--fps 1]</c>: sends a test picture (colour bars,
+/// the time, a frame number, a sweeping bar and the measured frame rate) to a cooler screen through the collector, the way
+/// the app does (<c>docs/SCREEN-PIPE.md</c>), at 1 to 30 frames a second. Tests the whole path (collector, screen pipe,
+/// FanControl plugin, cooler) without the app, and how many frames a second it carries: once a second it prints the frames
+/// sent, the frames the collector dropped and the rate achieved. When it ends, the cooler shows its own screen again after
+/// about 20 seconds.
 /// </summary>
 internal static class ScreenTestCommand
 {
-    private static readonly TimeSpan FrameInterval = TimeSpan.FromSeconds(1);
-
     /// <summary>How long to wait for the collector's hello and catalog.</summary>
     private static readonly TimeSpan CatalogTimeout = TimeSpan.FromSeconds(10);
 
-    public static async Task<int> RunAsync(string pipeName, string? hardwareId, int seconds, bool verify)
+    /// <summary>How often the progress line is printed.</summary>
+    private static readonly TimeSpan ReportInterval = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// The last stretch before a frame is due is spun instead of slept: Task.Delay wakes on the system timer (about 15.6 ms
+    /// on Windows), and a frame sent that late followed by one on time can put 31 frames in one second, which the collector
+    /// drops.
+    /// </summary>
+    private static readonly TimeSpan SpinBefore = TimeSpan.FromMilliseconds(20);
+
+    /// <summary>Frames rendered and encoded ahead on other cores, so the encoder's time doesn't cap the rate.</summary>
+    private static readonly int EncodeAhead = Math.Clamp(Environment.ProcessorCount - 1, 1, 4);
+
+    public static async Task<int> RunAsync(string pipeName, string? hardwareId, ScreenTestSettings settings, bool verify)
     {
+        ArgumentNullException.ThrowIfNull(settings);
         if (string.IsNullOrWhiteSpace(hardwareId))
         {
             Console.Error.WriteLine("screen-test needs --hardware <id>, e.g. --hardware lianli:/LianLi/0 (spacedeck-cli screen-test --hardware ? lists them).");
@@ -85,30 +100,35 @@ internal static class ScreenTestCommand
             }
 
             var screens = state.Catalog.Hardware.Where(h => h.Screen is { IsValid: true }).ToList();
+            var list = string.Join(Environment.NewLine, screens.Select(h => $"  {h.Id}  {h.Name}  {h.Screen!.Width} × {h.Screen.Height}"));
+            const string noScreens = "The collector knows no hardware with a screen. Is FanControl running with SpaceDeck's Lian Li plugin (a version with screen support)?";
+            if (hardwareId == "?")
+            {
+                if (screens.Count == 0)
+                {
+                    Console.Error.WriteLine(noScreens);
+                }
+                else
+                {
+                    Console.WriteLine($"Hardware with a screen:{Environment.NewLine}{list}");
+                }
+
+                return 0;
+            }
+
             var target = screens.FirstOrDefault(h => h.Id == hardwareId);
             if (target?.Screen is not { } screen)
             {
                 Console.Error.WriteLine(screens.Count == 0
-                    ? "The collector knows no hardware with a screen. Is FanControl running with SpaceDeck's Lian Li plugin (a version with screen support)?"
-                    : $"'{hardwareId}' has no screen. Hardware with a screen:{Environment.NewLine}"
-                        + string.Join(Environment.NewLine, screens.Select(h => $"  {h.Id}  {h.Name}  {h.Screen!.Width} × {h.Screen.Height}")));
-                return hardwareId == "?" ? 0 : 1;
+                    ? noScreens
+                    : $"'{hardwareId}' has no screen. Hardware with a screen:{Environment.NewLine}{list}");
+                return 1;
             }
 
-            Console.WriteLine($"Sending a test picture to {target.Name} ({target.Id}, {screen.Width} × {screen.Height}) once a second for {seconds} s. Ctrl+C to stop.");
-            var sent = 0;
-            var end = DateTime.UtcNow.AddSeconds(seconds);
-            while (DateTime.UtcNow < end && !cts.IsCancellationRequested && !reader.IsCompleted)
-            {
-                var now = TimeOnly.FromDateTime(DateTime.Now);
-                var rgb = ScreenTestPattern.Render(screen.Width, screen.Height, now, sent + 1);
-                var jpeg = EncodeUnderLimit(rgb, screen.Width, screen.Height);
-                await FrameCodec.WriteAsync(pipe, new ScreenFrameRequest(target.Id, jpeg), cts.Token).ConfigureAwait(false);
-
-                sent++;
-                Console.WriteLine(string.Create(CultureInfo.CurrentCulture, $"  frame {sent,4}  {now:HH:mm:ss}  {jpeg.Length / 1024.0:0.0} KB"));
-                await Task.Delay(FrameInterval, cts.Token).ConfigureAwait(false);
-            }
+            var fps = settings.FramesPerSecond;
+            var rate = fps == 1 ? "once a second" : string.Create(CultureInfo.InvariantCulture, $"{fps} times a second");
+            Console.WriteLine($"Sending a test picture to {target.Name} ({target.Id}, {screen.Width} × {screen.Height}) {rate} for {settings.Seconds} s. Ctrl+C to stop.");
+            var (sent, elapsed) = await SendAsync(pipe, target.Id, screen, settings, state, reader, cts.Token).ConfigureAwait(false);
 
             if (reader.IsCompleted && !cts.IsCancellationRequested)
             {
@@ -116,7 +136,8 @@ internal static class ScreenTestCommand
                 return 1;
             }
 
-            Console.WriteLine($"Sent {sent} frames. The cooler shows its own screen again in about 20 s.");
+            Console.WriteLine(string.Create(CultureInfo.CurrentCulture,
+                $"Sent {sent} frames in {elapsed.TotalSeconds:0.0} s ({sent / Math.Max(0.001, elapsed.TotalSeconds):0.0} a second). The cooler shows its own screen again in about 20 s."));
             await Task.Delay(TimeSpan.FromSeconds(1.5), cts.Token).ConfigureAwait(false); // the next status, with the last frames counted
             Console.WriteLine(state.ScreenStatus is { } status
                 ? $"Collector: {status.Message ?? status.Status.ToString()}"
@@ -146,6 +167,115 @@ internal static class ScreenTestCommand
             }
         }
     }
+
+    /// <summary>
+    /// Sends frames on a fixed schedule for the test's length, each rendered and encoded ahead, and prints a progress line
+    /// once a second. A frame that can't go out on time goes out as soon as it can and the schedule starts again from it,
+    /// so a stall is never made up with a burst the collector would drop. Returns the frames sent and the time taken.
+    /// </summary>
+    private static async Task<(int Sent, TimeSpan Elapsed)> SendAsync(NamedPipeClientStream pipe, string hardwareId, ScreenInfo screen,
+        ScreenTestSettings settings, CollectorState state, Task reader, CancellationToken token)
+    {
+        var period = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / settings.FramesPerSecond);
+        var length = TimeSpan.FromSeconds(settings.Seconds);
+
+        // The collector's counts before the first frame, so the lines show only what this test cost.
+        var droppedBefore = ScreenPipeCounts.TryFind(state.ScreenStatus?.Message)?.Dropped ?? 0;
+        double? measured = null;
+        var encoding = new Queue<Task<EncodedFrame>>();
+        var queued = 0;
+        void EncodeNext()
+        {
+            var number = ++queued;
+            var at = period * (number - 1);
+            var shown = measured;
+            encoding.Enqueue(Task.Run(() => Encode(screen, number, at, shown), token));
+        }
+
+        for (var i = 0; i < EncodeAhead; i++)
+        {
+            EncodeNext();
+        }
+
+        var clock = Stopwatch.StartNew();
+        var origin = TimeSpan.Zero; // moved on after a late frame, so the schedule continues from it
+        var sent = 0;
+        var lastReport = TimeSpan.Zero;
+        var sentAtReport = 0;
+        var encodeTime = TimeSpan.Zero;
+        long bytes = 0;
+        while (!token.IsCancellationRequested && !reader.IsCompleted)
+        {
+            var due = origin + (period * sent);
+            if (due >= length)
+            {
+                break;
+            }
+
+            await WaitUntilAsync(clock, due, token).ConfigureAwait(false);
+            var frame = await encoding.Dequeue().ConfigureAwait(false);
+            EncodeNext();
+            await FrameCodec.WriteAsync(pipe, new ScreenFrameRequest(hardwareId, frame.Jpeg), token).ConfigureAwait(false);
+            sent++;
+            encodeTime += frame.EncodeTime;
+            bytes += frame.Jpeg.Length;
+
+            var now = clock.Elapsed;
+            if (now - (origin + (period * sent)) > period)
+            {
+                origin = now - (period * sent);
+            }
+
+            if (now - lastReport >= ReportInterval)
+            {
+                var achieved = (sent - sentAtReport) / (now - lastReport).TotalSeconds;
+                measured = achieved;
+                var counts = ScreenPipeCounts.TryFind(state.ScreenStatus?.Message);
+                var dropped = counts is null ? "?" : (counts.Dropped - droppedBefore).ToString(CultureInfo.InvariantCulture);
+                var toPlugin = counts is null ? "?" : counts.FramesPerSecond.ToString("0.0", CultureInfo.InvariantCulture);
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                    $"  {now.TotalSeconds,5:0.0} s  sent {sent,5}  {achieved,5:0.0} fps  collector dropped {dropped,4}  to plugin {toPlugin,5}/s  encode {encodeTime.TotalMilliseconds / sent,5:0.0} ms  {bytes / 1024.0 / sent,5:0.0} KB"));
+                lastReport = now;
+                sentAtReport = sent;
+            }
+        }
+
+        return (sent, clock.Elapsed);
+    }
+
+    /// <summary>Waits until <paramref name="due"/> on <paramref name="clock"/>: sleeps most of the way, spins the rest.</summary>
+    private static async Task WaitUntilAsync(Stopwatch clock, TimeSpan due, CancellationToken token)
+    {
+        while (true)
+        {
+            var remaining = due - clock.Elapsed;
+            if (remaining <= TimeSpan.Zero)
+            {
+                return;
+            }
+
+            if (remaining > SpinBefore)
+            {
+                await Task.Delay(remaining - SpinBefore, token).ConfigureAwait(false);
+            }
+            else
+            {
+                token.ThrowIfCancellationRequested();
+                Thread.SpinWait(100);
+            }
+        }
+    }
+
+    /// <summary>Frame <paramref name="number"/> of the test, due <paramref name="at"/> after its start, as a JPEG.</summary>
+    private static EncodedFrame Encode(ScreenInfo screen, int number, TimeSpan at, double? framesPerSecond)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var rgb = ScreenTestPattern.Render(screen.Width, screen.Height, TimeOnly.FromDateTime(DateTime.Now), number, at, framesPerSecond);
+        var jpeg = EncodeUnderLimit(rgb, screen.Width, screen.Height);
+        return new EncodedFrame(jpeg, Stopwatch.GetElapsedTime(started));
+    }
+
+    private sealed record EncodedFrame(byte[] Jpeg, TimeSpan EncodeTime);
 
     /// <summary>A JPEG of the picture within the collector's 256 KiB limit (quality lowered if it isn't).</summary>
     private static byte[] EncodeUnderLimit(byte[] rgb, int width, int height)

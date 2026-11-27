@@ -2,11 +2,13 @@ namespace SpaceDeck.Core.Screens;
 
 /// <summary>
 /// A test picture for a cooler screen (<c>spacedeck-cli screen-test</c>): colour bars, the time in large digits, a frame
-/// number and a marker that moves with each frame, so a live screen is easy to tell from a stuck one. RGB, 3 bytes per pixel.
+/// number and a marker that moves with each frame, so a live screen is easy to tell from a stuck one. For a frame rate test
+/// it also draws a bar that sweeps across the colour bars by the time since the test began (so a frame that never arrives
+/// shows as a jump, and a low rate as judder) and the frames a second measured so far. RGB, 3 bytes per pixel.
 /// </summary>
 public static class ScreenTestPattern
 {
-    /// <summary>5×7 glyphs for 0–9 and ':', one row per byte (bit 4 = leftmost pixel).</summary>
+    /// <summary>5×7 glyphs for 0–9, ':', '.', 'F', 'P' and 'S', one row per byte (bit 4 = leftmost pixel).</summary>
     private static readonly byte[][] Glyphs =
     [
         [0b01110, 0b10001, 0b10011, 0b10101, 0b11001, 0b10001, 0b01110], // 0
@@ -20,7 +22,14 @@ public static class ScreenTestPattern
         [0b01110, 0b10001, 0b10001, 0b01110, 0b10001, 0b10001, 0b01110], // 8
         [0b01110, 0b10001, 0b10001, 0b01111, 0b00001, 0b00010, 0b01100], // 9
         [0b00000, 0b01100, 0b01100, 0b00000, 0b01100, 0b01100, 0b00000], // :
+        [0b00000, 0b00000, 0b00000, 0b00000, 0b00000, 0b01100, 0b01100], // .
+        [0b11111, 0b10000, 0b10000, 0b11110, 0b10000, 0b10000, 0b10000], // F
+        [0b11110, 0b10001, 0b10001, 0b11110, 0b10000, 0b10000, 0b10000], // P
+        [0b01111, 0b10000, 0b10000, 0b01110, 0b00001, 0b00001, 0b11110], // S
     ];
+
+    /// <summary>The sweeping bar crosses the picture once in this long: 8 pixels a frame on a 480-wide screen at 30 a second.</summary>
+    private static readonly TimeSpan SweepPeriod = TimeSpan.FromSeconds(2);
 
     /// <summary>White, yellow, cyan, green, magenta, red, blue, black.</summary>
     private static readonly (byte R, byte G, byte B)[] Bars =
@@ -29,7 +38,14 @@ public static class ScreenTestPattern
     ];
 
     /// <summary>Draws the pattern for <paramref name="time"/> and frame number <paramref name="frame"/>.</summary>
-    public static byte[] Render(int width, int height, TimeOnly time, int frame)
+    public static byte[] Render(int width, int height, TimeOnly time, int frame) => Render(width, height, time, frame, null, null);
+
+    /// <summary>
+    /// Draws the pattern for <paramref name="time"/> and frame number <paramref name="frame"/>, with the sweeping bar at
+    /// <paramref name="elapsed"/> since the test began and <paramref name="framesPerSecond"/> written under the frame
+    /// number; either is left out when null.
+    /// </summary>
+    public static byte[] Render(int width, int height, TimeOnly time, int frame, TimeSpan? elapsed, double? framesPerSecond)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(width, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(height, 1);
@@ -58,6 +74,23 @@ public static class ScreenTestPattern
         var numberTop = barsHeight + (height / 12) + (8 * cell);
         DrawText(rgb, width, height, number, (width - numberWidth) / 2, numberTop, small, (255, 140, 0));
 
+        // The frames a second measured so far, under the frame number, in green.
+        if (framesPerSecond is { } fps)
+        {
+            var rate = Math.Max(0, fps).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " FPS";
+            var rateWidth = ((rate.Length * 6) - 1) * small;
+            DrawText(rgb, width, height, rate, (width - rateWidth) / 2, numberTop + (8 * small), small, (64, 235, 64));
+        }
+
+        // A bar sweeping across the colour bars, placed by the time since the test began rather than the frame number.
+        if (elapsed is { } since)
+        {
+            var barWidth = Math.Max(1, width / 40);
+            var phase = (((since.Ticks % SweepPeriod.Ticks) + SweepPeriod.Ticks) % SweepPeriod.Ticks) / (double)SweepPeriod.Ticks;
+            var barLeft = (int)(phase * Math.Max(0, width - barWidth));
+            Fill(rgb, width, barLeft, 0, barWidth, barsHeight, (255, 140, 0));
+        }
+
         // A grey ramp along the bottom, with a marker that steps along it every frame.
         var rampTop = height - Math.Max(1, height / 10);
         for (var x = 0; x < width; x++)
@@ -81,6 +114,10 @@ public static class ScreenTestPattern
             {
                 >= '0' and <= '9' => Glyphs[text[c] - '0'],
                 ':' => Glyphs[10],
+                '.' => Glyphs[11],
+                'F' => Glyphs[12],
+                'P' => Glyphs[13],
+                'S' => Glyphs[14],
                 _ => null,
             };
             if (glyph is null)

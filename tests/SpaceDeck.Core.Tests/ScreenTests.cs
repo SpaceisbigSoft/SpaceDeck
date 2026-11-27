@@ -133,22 +133,24 @@ public class ScreenTests
     // ---- Rate limit -------------------------------------------------------------------------------------------------
 
     [Fact]
-    public void Gate_AllowsTwoFramesInAnySecond_PerScreen()
+    public void Gate_AllowsThirtyFramesInAnySecond_PerScreen()
     {
+        Assert.Equal(30, ScreenFrameRules.MaxFramesPerSecond);
         var time = new ManualClock();
         var gate = new ScreenFrameGate(time);
 
-        Assert.True(gate.TryAccept("LianLi/0"));
-        time.Advance(0.6);
-        Assert.True(gate.TryAccept("LianLi/0"));
-        time.Advance(0.3); // 0.9 s
-        Assert.False(gate.TryAccept("LianLi/0"));
+        for (var i = 0; i < 30; i++)
+        {
+            Assert.True(gate.TryAccept("LianLi/0"));
+            time.Advance(0.03);
+        }
+
+        Assert.False(gate.TryAccept("LianLi/0")); // a 31st at 0.9 s
         Assert.True(gate.TryAccept("LianLi/1")); // another screen has its own budget
         time.Advance(0.1); // 1.0 s: the first frame is a second old
         Assert.True(gate.TryAccept("LianLi/0"));
-        time.Advance(0.1); // 1.1 s: frames at 0.6 and 1.0 are within the last second
-        Assert.False(gate.TryAccept("LianLi/0"));
-        time.Advance(0.5); // 1.6 s
+        Assert.False(gate.TryAccept("LianLi/0")); // the one at 0.03 s is still within the last second
+        time.Advance(0.03); // 1.03 s
         Assert.True(gate.TryAccept("LianLi/0"));
     }
 
@@ -157,8 +159,11 @@ public class ScreenTests
     {
         var time = new ManualClock();
         var gate = new ScreenFrameGate(time);
-        Assert.True(gate.TryAccept("s"));
-        Assert.True(gate.TryAccept("s"));
+        for (var i = 0; i < 30; i++)
+        {
+            Assert.True(gate.TryAccept("s"));
+        }
+
         for (var i = 0; i < 10; i++)
         {
             Assert.False(gate.TryAccept("s"));
@@ -166,6 +171,106 @@ public class ScreenTests
 
         time.Advance(1);
         Assert.True(gate.TryAccept("s"));
+    }
+
+    // ---- Frames a second, and the status line's counts -----------------------------------------------------------------
+
+    [Fact]
+    public void Rate_CountsTheFramesOfTheLastFiveSeconds()
+    {
+        var time = new ManualClock();
+        var rate = new ScreenFrameRate(time);
+        Assert.Equal(0, rate.PerSecond());
+
+        for (var i = 0; i < 100; i++)
+        {
+            rate.Count();
+            time.Advance(0.04); // 25 a second
+        }
+
+        Assert.Equal(TimeSpan.FromSeconds(5), ScreenFrameRate.Window);
+        Assert.Equal(20, rate.PerSecond(), 3); // 100 frames over 4 s, counted against the 5 s window
+        time.Advance(1); // the first frame is now 5 s old
+        Assert.Equal(19.8, rate.PerSecond(), 3); // and drops out
+        time.Advance(4);
+        Assert.Equal(0, rate.PerSecond());
+    }
+
+    [Fact]
+    public void Rate_KeepsABoundedNumberOfTimes()
+    {
+        var rate = new ScreenFrameRate(new ManualClock());
+        for (var i = 0; i < 5000; i++)
+        {
+            rate.Count();
+        }
+
+        Assert.Equal(1024 / 5.0, rate.PerSecond(), 3);
+    }
+
+    [Fact]
+    public void Counts_AreReadBackFromTheStatusLine()
+    {
+        var line = "Screen pipe connected · " + new ScreenPipeCounts(1234, 56, 29.84).Format();
+        Assert.Equal("Screen pipe connected · 1234 frames sent · 56 dropped · 29.8 frames/s", line);
+
+        var counts = ScreenPipeCounts.TryFind(line);
+        Assert.NotNull(counts);
+        Assert.Equal(1234, counts.Sent);
+        Assert.Equal(56, counts.Dropped);
+        Assert.Equal(29.8, counts.FramesPerSecond, 3);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("Screen pipe connected · 12 frames sent · 3 dropped")] // an older collector, without the rate
+    [InlineData("Screen pipe connected · 99999999999999999999 frames sent · 3 dropped · 1.0 frames/s")] // too many digits
+    public void Counts_AreNotFoundInALineWithout(string? line)
+    {
+        Assert.Null(ScreenPipeCounts.TryFind(line));
+    }
+
+    // ---- spacedeck-cli screen-test settings ---------------------------------------------------------------------------
+
+    [Fact]
+    public void TestSettings_Default_To30SecondsAtOneFrameASecond()
+    {
+        Assert.Equal(new ScreenTestSettings(30, 1), ScreenTestSettings.Parse(null, null, out var error));
+        Assert.Null(error);
+    }
+
+    [Theory]
+    [InlineData("1", 1)]
+    [InlineData("24", 24)]
+    [InlineData("30", 30)]
+    public void TestSettings_TakeAFrameRateFromOneToThirty(string fps, int expected)
+    {
+        Assert.Equal(expected, ScreenTestSettings.Parse("60", fps, out var error)?.FramesPerSecond);
+        Assert.Null(error);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("31")]
+    [InlineData("-5")]
+    [InlineData("2.5")]
+    [InlineData("fast")]
+    [InlineData("")]
+    public void TestSettings_RefuseAFrameRateOutsideOneToThirty(string fps)
+    {
+        Assert.Null(ScreenTestSettings.Parse(null, fps, out var error));
+        Assert.Equal($"--fps must be a whole number from 1 to 30 (frames a second), not '{fps}'.", error);
+    }
+
+    [Theory]
+    [InlineData(null, 30)]
+    [InlineData("abc", 30)]
+    [InlineData("1", 5)]
+    [InlineData("120", 120)]
+    [InlineData("100000", 600)]
+    public void TestSettings_KeepTheSecondsWithinFiveToSixHundred(string? seconds, int expected)
+    {
+        Assert.Equal(expected, ScreenTestSettings.Parse(seconds, "10", out _)?.Seconds);
     }
 
     // ---- Newest frame only, never older than 5 s ---------------------------------------------------------------------
@@ -421,11 +526,30 @@ public class ScreenTests
     }
 
     [Fact]
+    public void TestPattern_ForAFrameRateTest_SweepsABarByTheTime_AndWritesTheRate()
+    {
+        var time = new TimeOnly(12, 34, 56);
+        var plain = ScreenTestPattern.Render(480, 480, time, 7);
+        Assert.Equal(plain, ScreenTestPattern.Render(480, 480, time, 7, null, null));
+
+        var atStart = ScreenTestPattern.Render(480, 480, time, 7, TimeSpan.Zero, null);
+        Assert.NotEqual(plain, atStart);
+        Assert.NotEqual(atStart, ScreenTestPattern.Render(480, 480, time, 7, TimeSpan.FromMilliseconds(500), null)); // the bar moves
+        Assert.Equal(atStart, ScreenTestPattern.Render(480, 480, time, 7, TimeSpan.FromSeconds(2), null)); // once across in 2 s
+        Assert.Equal(atStart, ScreenTestPattern.Render(480, 480, time, 7, TimeSpan.FromSeconds(-2), null));
+
+        var at29 = ScreenTestPattern.Render(480, 480, time, 7, TimeSpan.Zero, 29.8);
+        Assert.NotEqual(atStart, at29);
+        Assert.NotEqual(at29, ScreenTestPattern.Render(480, 480, time, 7, TimeSpan.Zero, 12.0));
+        Assert.Null(ScreenFrameRules.Validate(BaselineJpegEncoder.Encode(at29, 480, 480, 85), Screen480));
+    }
+
+    [Fact]
     public void TestPattern_WorksForOddSizes()
     {
         foreach (var (w, h) in new[] { (1, 1), (7, 3), (320, 240), (1024, 1) })
         {
-            var rgb = ScreenTestPattern.Render(w, h, new TimeOnly(23, 59, 59), 12345);
+            var rgb = ScreenTestPattern.Render(w, h, new TimeOnly(23, 59, 59), 12345, TimeSpan.FromSeconds(1.3), 29.8);
             var jpeg = BaselineJpegEncoder.Encode(rgb, w, h, 85);
             Assert.Null(ScreenFrameRules.Validate(jpeg, new ScreenInfo(w, h)));
         }

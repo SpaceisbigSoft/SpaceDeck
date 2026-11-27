@@ -8,7 +8,7 @@ only program that opens the cooler (one owner, one lock for status, pump and scr
 ```
 SpaceDeck.App ──app pipe (ScreenFrame)──► Collector ──\\.\pipe\SpaceDeck.Screen──► FanControl plugin ──HID 0x0E──► cooler
    draws 480×480 JPEG                     keeps the latest,                         validates, sends on the
-   every 1–5 s                            forwards new frames                       cooler's worker thread
+   every 1–5 s (up to 30 a second)        forwards new frames                       cooler's worker thread
 ```
 
 **What a frame can do:** show a picture on the cooler's screen. Nothing on this pipe is a fan, pump or lighting
@@ -41,7 +41,13 @@ A new app-pipe request `ScreenFrame { HardwareId, Jpeg }` (protocol version bump
 - `HardwareId`: a hardware id the collector has from the plugin with a `screen` (e.g. `lianli:/LianLi/0`).
 - `Jpeg`: 1 byte – 256 KiB, starts `FF D8`, ends `FF D9`, the screen's size (the collector checks the markers and
   the size field only; it does not decode).
-- At most 2 frames a second per hardware id; more are dropped (counted in Diagnostics), not queued.
+- At most 30 frames a second per hardware id (in any one second); more are dropped (counted in Diagnostics), not
+  queued. 30 is enough for smooth motion and what the plugin sends to a cooler at most.
+- The collector writes to the screen pipe at most 30 messages a second in all, evenly (one every 1/30 s), the newest
+  waiting frame each time.
+- Diagnostics shows the pipe's status line, e.g. `Screen pipe connected · 1200 frames sent · 4 dropped · 29.8 frames/s`:
+  frames written to the plugin and dropped since the collector started, and frames a second written over the last 5 s.
+  `spacedeck-cli screen-test --hardware <id> --fps <1–30>` reads it back to measure what the path carries.
 - The collector keeps only the newest frame per screen and forwards each frame once. It never forwards a frame older
   than 5 s (so a frame that waited for the plugin to reconnect is dropped, not shown late).
 - Who may send: the same clients that may use the app pipe today (Authenticated Users). A frame can only change the
@@ -75,15 +81,19 @@ All integers little-endian.
 | 12+N | L | JPEG bytes |
 
 The plugin disconnects (and logs once per run) on: wrong magic or version, unknown kind, an id or payload length
-out of range, a payload that doesn't start `FF D8` and end `FF D9`, or more than 4 messages a second on average
-(token bucket: 8, refilled at 4 a second). An id it has no screen for is ignored (logged once).
+out of range, a payload that doesn't start `FF D8` and end `FF D9`, or more than 30 messages a second on average
+(token bucket: 60, refilled at 30 a second, so a collector catching up after a stall isn't taken for a flood). An id
+it has no screen for is ignored (logged once).
 
 ### What the plugin does with a frame
 
 - Keeps only the newest frame per cooler (a slot, replaced, never queued) and drops a frame it has held for more than
   5 s without sending.
 - Sends it on that cooler's worker thread, between the status polls, as 0x0E in 1013-byte B packets, at most
-  2 frames a second per cooler. A failed write costs the frame and is logged; fan and pump control never wait on a
-  screen frame for more than one transfer.
+  30 frames a second per cooler (a frame within 1/30 s of the last waits, replaced by any newer one). The status poll
+  stays at most every 500 ms however often frames wake the worker. A failed write costs the frame and is logged; fan
+  and pump control never wait on a screen frame for more than one transfer.
+- Once a minute while frames are sent, `plugin.log` has one line per cooler: frames sent, frames dropped before
+  sending (replaced or expired), the average and longest time to write one frame, and the average frame size.
 - Never repeats a frame, never sends anything to the screen without a frame, and sends nothing to the screen when
   no SpaceDeck collector is installed.

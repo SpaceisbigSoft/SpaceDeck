@@ -20,11 +20,11 @@ using SpaceDeck.Sources.Lhm.SystemChecks;
 //   spacedeck-cli fancontrol switch <config> [--exe path]
 //   spacedeck-cli diff <before.json> <after.json>   (compare hardware reports, e.g. across an LHM update)
 //   spacedeck-cli lianli-listen [--seconds 30] [--out file] [--query]   (Lian Li cooler test; doesn't need admin)
-//   spacedeck-cli screen-test --hardware lianli:/LianLi/0 [--seconds 30] [--pipe name] [--no-verify]   (cooler screen test)
+//   spacedeck-cli screen-test --hardware lianli:/LianLi/0 [--seconds 30] [--fps 1] [--pipe name] [--no-verify]   (cooler screen test)
 
 Console.OutputEncoding = Encoding.UTF8;
 
-string[] optionsWithValues = ["--interval", "--kind", "--exe", "--pipe", "--seconds", "--out", "--hardware"];
+string[] optionsWithValues = ["--interval", "--kind", "--exe", "--pipe", "--seconds", "--out", "--hardware", "--fps"];
 var positionals = Positionals();
 var command = positionals.FirstOrDefault()?.ToLowerInvariant() ?? "list";
 var options = new LhmOptions
@@ -65,8 +65,13 @@ if (command == "lianli-listen")
 
 if (command == "screen-test")
 {
-    var seconds = int.TryParse(GetValue("--seconds"), out var testSeconds) ? Math.Clamp(testSeconds, 5, 600) : 30;
-    return SpaceDeck.Cli.ScreenTestCommand.RunAsync(GetValue("--pipe") ?? ProtocolInfo.PipeName, GetValue("--hardware"), seconds, verify: !HasFlag("--no-verify"))
+    if (SpaceDeck.Core.Screens.ScreenTestSettings.Parse(GetValue("--seconds"), GetValue("--fps"), out var screenTestError) is not { } screenTest)
+    {
+        Console.Error.WriteLine(screenTestError);
+        return 2;
+    }
+
+    return SpaceDeck.Cli.ScreenTestCommand.RunAsync(GetValue("--pipe") ?? ProtocolInfo.PipeName, GetValue("--hardware"), screenTest, verify: !HasFlag("--no-verify"))
         .GetAwaiter().GetResult();
 }
 
@@ -186,10 +191,12 @@ static void PrintUsage()
                                      carry (fan, pump, coolant). Read-only by default; --query also asks the cooler
                                      itself (status and firmware queries only, after 3 s of silence, never while
                                      L-Connect runs). --seconds <n> (default 30), --out <file>. No admin needed.
-          screen-test --hardware <id>  Send a test picture (colour bars, the time, a frame number) to a cooler
-                                     screen through the collector once a second, e.g. --hardware lianli:/LianLi/0
-                                     (--hardware ? lists the screens). --seconds <n> (5–600, default 30). Needs
-                                     FanControl with SpaceDeck's Lian Li plugin; no admin needed.
+          screen-test --hardware <id>  Send a test picture (colour bars, the time, a frame number, a sweeping bar
+                                     and the measured rate) to a cooler screen through the collector, e.g.
+                                     --hardware lianli:/LianLi/0 (--hardware ? lists the screens). --seconds <n>
+                                     (5–600, default 30), --fps <n> (1–30 frames a second, default 1). Prints the
+                                     frames sent, the frames the collector dropped and the rate achieved once a
+                                     second. Needs FanControl with SpaceDeck's Lian Li plugin; no admin needed.
 
         Options:
           --kind voltage,fan,temperature   Only show these sensor kinds (list/watch/connect).

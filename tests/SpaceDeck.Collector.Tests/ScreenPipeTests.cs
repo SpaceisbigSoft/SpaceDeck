@@ -105,18 +105,52 @@ public sealed class ScreenPipeTests : IAsyncLifetime
     }
 
     [Fact]
-    public void Relay_KeepsAtMostTwoFramesASecond_AndOnlyTheNewest()
+    public void Relay_KeepsAtMostThirtyFramesASecond_AndOnlyTheNewest()
     {
+        Assert.Equal(30, ScreenFrameRules.MaxFramesPerSecond);
         _bridge.ApplyCatalog(1, WithScreen);
-        _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, 1)));
-        _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, 2))); // replaces the first (dropped)
-        _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, 3))); // a third within a second: refused
+        for (var i = 1; i <= 30; i++)
+        {
+            _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, (byte)i))); // each replaces the one before (dropped)
+        }
+
+        _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, 31))); // a 31st within a second: refused
 
         var frame = _relay.Mailbox.Take();
         Assert.NotNull(frame);
         Assert.Equal("LianLi/0", frame.ScreenId);
-        Assert.Equal(Jpeg(480, 480, 2), frame.Jpeg);
-        Assert.Equal(2, _relay.Dropped);
+        Assert.Equal(Jpeg(480, 480, 30), frame.Jpeg);
+        Assert.Equal(30, _relay.Dropped);
+    }
+
+    [Fact]
+    public void Relay_Status_SaysTheFramesASecondOverTheLastFiveSeconds()
+    {
+        var time = new ManualTimeProvider();
+        var relay = new ScreenRelay(_bridge, NullLogger<ScreenRelay>.Instance, time);
+        _bridge.ApplyCatalog(1, WithScreen);
+        Assert.Equal("Screen pipe: FanControl's Lian Li plugin isn't connected · 0 frames sent · 0 dropped · 0.0 frames/s", Assert.Single(relay.StatusEntries()).Message);
+
+        relay.SetConnected(true);
+        for (var i = 0; i < 149; i++)
+        {
+            relay.CountSent();
+            time.Advance(TimeSpan.FromTicks(TimeSpan.TicksPerSecond / 30));
+        }
+
+        var entry = Assert.Single(relay.StatusEntries());
+        Assert.Equal(SourceStatus.Ok, entry.Status);
+        Assert.Equal("Screen pipe connected · 149 frames sent · 0 dropped · 29.8 frames/s", entry.Message);
+
+        time.Advance(TimeSpan.FromSeconds(5));
+        Assert.Equal("Screen pipe connected · 149 frames sent · 0 dropped · 0.0 frames/s", Assert.Single(relay.StatusEntries()).Message);
+    }
+
+    [Fact]
+    public void Pipe_PacesItsMessagesAtThirtyASecond()
+    {
+        Assert.Equal(30, ScreenPipeServer.MaxMessagesPerSecond);
+        Assert.Equal(TimeSpan.FromTicks(333_333), ScreenPipeServer.MinMessageGap);
     }
 
     [Fact]
