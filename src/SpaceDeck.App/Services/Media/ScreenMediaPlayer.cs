@@ -145,7 +145,7 @@ internal sealed class ScreenMediaPlayer : IDisposable
             var pacer = new FramePacer(Playback.MaxFramesPerSecond, KeepAlive);
             var meter = new FrameRateMeter();
             var clock = Stopwatch.StartNew();
-            var lastReport = TimeSpan.MinValue;
+            TimeSpan? lastReport = null; // not TimeSpan.MinValue: now - MinValue overflows after the first frame
             string? lastSkip = null;
             while (!token.IsCancellationRequested)
             {
@@ -169,7 +169,7 @@ internal sealed class ScreenMediaPlayer : IDisposable
                     {
                         var now = clock.Elapsed;
                         meter.Add(now);
-                        if (now - lastReport >= ReportEvery)
+                        if (lastReport is not { } reported || now - reported >= ReportEvery)
                         {
                             lastReport = now;
                             var preview = ToBitmap(upright);
