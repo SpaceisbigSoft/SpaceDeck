@@ -12,7 +12,7 @@ About → Updates.
   Cooler screen: content, fit or fill, background colour, rotation (for a cooler mounted upside down), picture quality
   and frame rate. Moving pictures are kept small enough for the cooler to show them without flicker.
 - **Screen-shaped dashboards:** a square editor with a live preview, a built-in "Cooler screen" layout with large
-  numbers ("Reset to default layout…"), a new **Image** tile for a picture or GIF, and a picture or GIF as any
+  numbers ("Reset to default layout…"), a new **Picture or GIF** tile, and a picture or GIF as any
   dashboard's background.
 - **Lian Li cooler readings** (coolant temperature, pump and fan speed) in SpaceDeck, from FanControl.
 - **Screen ring lighting through OpenRGB:** OpenRGB can set the GA II LCD's ring (Direct, Off, Static, Breathing,
