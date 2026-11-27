@@ -74,6 +74,48 @@ Dark HUD, Nord, Dracula, Gruvbox, Cyberpunk, Synthwave, Red Team, OLED black, Pa
       within ~25 s; fan and pump control in FanControl are unaffected throughout.
 - [ ] Switch skins while it runs: the next frame uses the new skin. The main window stays responsive.
 
+## H3. Cooler screen pictures, GIFs, videos, picture tiles, square editor
+Rotation "Upside down" for the owner's cooler; every check also on "Upright" once. The status line under the screen
+reads "On · N fps · X KB" while frames go out at a frame rate, else "On · … · X KB, sent hh:mm:ss".
+- [ ] **Picture:** Show → "A picture", Choose… a JPEG photo taken on a phone (portrait): it shows upright on the cooler
+      (EXIF orientation applied), Fill crops top and bottom, Fit shows it whole with bars in the chosen background
+      colour (try White). The preview in Settings shows it upright. The status says a still picture is sent again every
+      5 s; Diagnostics' frames-a-second stays near 0.2. Rename or delete the original file: nothing changes (SpaceDeck
+      keeps its copy in `%AppData%\SpaceDeck\screens`).
+- [ ] **Colour-bar edge line** (the one-pixel row of the neighbouring bar's colour seen with `screen-test`): show
+      `samples/screen-test-colour-bars.png` as a Picture (Fill, Upright, so it matches the unrotated CLI frames). The
+      app's JPEGs are WPF's (4:2:0, 16 × 16 blocks), the CLI's are 4:4:4 (8 × 8). If the line is gone here, the cooler's
+      decoder mishandles 4:4:4 at the picture's first row; if it is there too, it is the cooler's display. Either way
+      the CLI's encoder decodes cleanly elsewhere (row 0 equals row 5 in every bar).
+- [ ] **GIF:** "An animated GIF or a video" → an optimized GIF (one from a site like Giphy, with small changing
+      rectangles and transparency): no garbage, trails or flicker on the cooler, it loops, and runs at its own speed
+      (a 10 fps GIF shows ~10 fps in the status line; one at 30+ fps shows the max frames a second). Max frames a
+      second 5: visibly choppier; 24 and 30: smooth, Diagnostics shows next to no drops.
+- [ ] **Video:** an MP4 (H.264, 1080p), a MOV from a phone, a WMV and an AVI: each plays smoothly at 24 fps, loops
+      without a long pause, no sound. A file Windows can't play (e.g. a .mkv with a codec not installed) gives "Couldn't
+      play …" in the status line and nothing on the cooler (its own screen comes back after ~20 s). The main window
+      stays responsive while a video plays (drag the window, switch pages); Task Manager: CPU use is moderate.
+- [ ] **Slideshow:** a folder with a few pictures and a GIF, 5 seconds each: they follow in name order, the GIF
+      plays during its turn, and it loops. A broken file in the folder shows "Skipped …" and the background colour for
+      its turn.
+- [ ] **Stopping:** with a video playing, untick "Use this screen", close SpaceDeck, and stop the collector service, one
+      at a time: the frames stop at once (Diagnostics' count stops rising) and the cooler shows its own screen again
+      after ~20 s. `screen-test` while a video plays is refused (another sender), as with a dashboard.
+- [ ] **Picture tile:** Add tile → "Picture or GIF" → Choose… a GIF: it animates on the dashboard; Fit inside / 40 %
+      opacity apply; it animates on the cooler too when that dashboard is shown there (status at ~the max fps).
+- [ ] **Background:** dashboard … menu → "Background picture or GIF…": it fills the page behind all tiles; "Fit the
+      background inside" and "Dim the background" apply; on a cooler screen layout it fills the whole cooler screen,
+      edges included. "Remove the background" brings the skin back.
+- [ ] **Square editor:** Settings → Cooler screen → "Edit layout": the dashboard page opens in edit mode with an
+      orange frame of the screen's shape (6 × 11 cells), the caption under it, and beside it the live preview of what the
+      cooler shows, upright, updating as tiles move. Tiles inside the frame can't be dragged past its right edge; one
+      dragged below it disappears from the cooler. The dashboard … menu's "Square layout for a cooler screen" marks any
+      dashboard so it is edited this way.
+- [ ] **Default layout:** Settings → Cooler screen → "Reset to default layout…" on the existing "Cooler screen"
+      dashboard: after the confirmation, CPU temperature large across the top, GPU and coolant side by side, pump across
+      the bottom, filling the screen, readable at arm's length. Another dashboard, a skin, the background and the name
+      stay as they were. A cooler turned on for the first time on a fresh profile gets this layout.
+
 ## I. Without admin / without PawnIO (optional, informative)
 - [ ] Run the collector from a normal (non-admin) terminal on another pipe:
       `src\SpaceDeck.Collector\bin\Release\net10.0-windows\SpaceDeck.Collector.exe --pipe SpaceDeck-test` and

@@ -11,6 +11,11 @@ SpaceDeck.App ──app pipe (ScreenFrame)──► Collector ──\\.\pipe\Spa
    every 1–5 s (up to 30 a second)        keeps the latest, forwards new frames     cooler's worker thread
 ```
 
+**Note (pictures, GIFs, videos):** besides a dashboard, the app can show a still picture, an animated GIF, a video
+or a slideshow (Settings → Cooler screen). Those are drawn, scaled and turned in the app and arrive here as the same
+ScreenFrame JPEGs, at most 30 a second (the app's own "max frames a second", 24 by default); nothing on this pipe
+changes, and every rule below (one sender per screen, never a repeated frame, the 20 s failsafe) applies as it is.
+
 **What a frame can do:** show a picture on the cooler's screen. Nothing on this pipe is a fan, pump or lighting
 command, and the plugin builds every USB packet itself; the only bytes from the pipe that reach the cooler are a
 JPEG's, as the payload of 0x0E SendJpeg (`docs/registers/lianli-galahad2-screen-and-ring.md`).
