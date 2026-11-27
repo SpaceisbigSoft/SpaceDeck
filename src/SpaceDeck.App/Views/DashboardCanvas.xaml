@@ -121,6 +121,7 @@
                      Visibility="{Binding ShowMinMax, Converter={StaticResource VisibleWhen}}" />
           <c:Sparkline Grid.Row="4" Margin="0,10,0,0" MinHeight="20"
                        Series="{Binding Reading.History}" WindowSeconds="{Binding WindowSeconds}"
+                       MinimumSpanFraction="{Binding Reading.SparklineMinimumSpan, Mode=OneWay}"
                        Stroke="{DynamicResource Skin.Line}" EndDot="{DynamicResource Skin.Accent}" />
         </Grid>
       </Border>

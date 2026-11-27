@@ -29,6 +29,10 @@ public sealed class Sparkline : FrameworkElement
         nameof(EndDot), typeof(Brush), typeof(Sparkline),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty MinimumSpanFractionProperty = DependencyProperty.Register(
+        nameof(MinimumSpanFraction), typeof(double), typeof(Sparkline),
+        new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public Sparkline()
     {
         // Low-resource: don't redraw while hidden (in the tray, hidden overlay, another page); catch up when shown.
@@ -66,6 +70,16 @@ public sealed class Sparkline : FrameworkElement
     {
         get => (double)GetValue(StrokeThicknessProperty);
         set => SetValue(StrokeThicknessProperty, value);
+    }
+
+    /// <summary>
+    /// The vertical range spans at least this fraction of the largest reading (0 = fit the data tightly). Fans and pumps
+    /// use 0.1, so a pump moving between 3,000 and 3,060 rpm draws as a small wiggle, not as drops across the whole box.
+    /// </summary>
+    public double MinimumSpanFraction
+    {
+        get => (double)GetValue(MinimumSpanFractionProperty);
+        set => SetValue(MinimumSpanFractionProperty, value);
     }
 
     /// <summary>Optional dot at the newest point (e.g. the accent color).</summary>
@@ -106,6 +120,14 @@ public sealed class Sparkline : FrameworkElement
         // The padding grows with the magnitude: for huge readings "± 1" is below float/double precision, the range
         // would stay zero and every point would land on NaN.
         double lo = min, hi = max;
+        var minimumSpan = Math.Max(Math.Abs(lo), Math.Abs(hi)) * MinimumSpanFraction;
+        if (MinimumSpanFraction > 0 && hi - lo < minimumSpan)
+        {
+            var middle = (lo + hi) / 2;
+            lo = middle - (minimumSpan / 2);
+            hi = middle + (minimumSpan / 2);
+        }
+
         if (hi - lo < Math.Max(1e-6, Math.Abs(hi) * 1e-9))
         {
             var flat = Math.Max(1, Math.Abs(hi) * 1e-6);

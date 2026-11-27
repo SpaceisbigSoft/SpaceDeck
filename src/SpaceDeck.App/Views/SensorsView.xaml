@@ -117,6 +117,7 @@
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
               <c:Sparkline Series="{Binding History}" WindowSeconds="300" Height="18" Margin="0,0,16,0"
+                           MinimumSpanFraction="{Binding SparklineMinimumSpan, Mode=OneTime}"
                            Stroke="{DynamicResource Skin.Line}" StrokeThickness="1" VerticalAlignment="Center" />
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>

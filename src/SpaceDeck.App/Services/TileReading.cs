@@ -35,6 +35,8 @@ public sealed class TileReading : ObservableObject, IDisposable
 
     public TimeSeries History => Sensor.History;
 
+    public double SparklineMinimumSpan => Sensor.SparklineMinimumSpan;
+
     public string DisplayValue => UnitFormatter.Format(Sensor.Kind, Sensor.Value, _spec.Decimals, _display.TemperatureUnit);
 
     public string DisplayMin => UnitFormatter.Format(Sensor.Kind, Sensor.Min, _spec.Decimals, _display.TemperatureUnit);
