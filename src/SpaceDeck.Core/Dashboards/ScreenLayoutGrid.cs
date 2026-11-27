@@ -40,7 +40,10 @@ public readonly record struct ScreenLayoutGrid(int Columns, int Rows)
     public bool Contains(IEnumerable<TileSpec> tiles)
     {
         ArgumentNullException.ThrowIfNull(tiles);
-        return tiles.All(t => t.Col >= 0 && t.Row >= 0 && t.Col + t.ColSpan <= Columns && t.Row + t.RowSpan <= Rows);
+        // A lambda in a struct can't read 'this', so the bounds are copied first (CS1673).
+        var columns = Columns;
+        var rows = Rows;
+        return tiles.All(t => t.Col >= 0 && t.Row >= 0 && t.Col + t.ColSpan <= columns && t.Row + t.RowSpan <= rows);
     }
 
     /// <summary>
