@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using SpaceDeck.App.ViewModels;
+using SpaceDeck.Core.Dashboards;
 using SpaceDeck.Core.Protocol;
 using SpaceDeck.Core.Screens;
 
@@ -23,16 +24,19 @@ public sealed class CoolerScreenService : ObservableObject, IDisposable
     private readonly SensorStore _store;
     private readonly DashboardViewModel _dashboards;
     private readonly AppSettings _settings;
+    private readonly DialogService _dialogs;
     private bool _disposed;
 
-    public CoolerScreenService(SensorStore store, DashboardViewModel dashboards, AppSettings settings)
+    public CoolerScreenService(SensorStore store, DashboardViewModel dashboards, AppSettings settings, DialogService dialogs)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(dashboards);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(dialogs);
         _store = store;
         _dashboards = dashboards;
         _settings = settings;
+        _dialogs = dialogs;
         if (AppMode.IsReplay)
         {
             return;
@@ -43,6 +47,9 @@ public sealed class CoolerScreenService : ObservableObject, IDisposable
         dashboards.Dashboards.CollectionChanged += OnDashboardsChanged;
         Refresh();
     }
+
+    /// <summary>"Edit layout" in a cooler screen's row: the main window shows that dashboard in edit mode.</summary>
+    public event Action<DashboardDocumentViewModel>? EditLayoutRequested;
 
     public ObservableCollection<CoolerScreenViewModel> Screens { get; } = [];
 
@@ -65,14 +72,69 @@ public sealed class CoolerScreenService : ObservableObject, IDisposable
         id is null ? null : _dashboards.Dashboards.FirstOrDefault(d => d.Id == id);
 
     /// <summary>Makes the built-in "Cooler screen" dashboard for this screen; null while no sensors are known yet.</summary>
-    internal DashboardDocumentViewModel? CreateDefaultDashboard(string hardwareId)
+    internal DashboardDocumentViewModel? CreateDefaultDashboard(ScreenTarget target)
     {
         if (_store.Sensors.Count == 0)
         {
             return null;
         }
 
-        return _dashboards.AddDashboard(DefaultDashboard.CreateCoolerScreen(_store.Sensors, hardwareId));
+        return _dashboards.AddDashboard(DefaultDashboard.CreateCoolerScreen(_store.Sensors, target.HardwareId, target.Width, target.Height));
+    }
+
+    /// <summary>
+    /// After asking: replaces <paramref name="dashboard"/>'s tiles with the built-in layout for this screen (and makes it
+    /// a screen layout). Its name, background and everything else stay. False when cancelled or there are no sensors yet.
+    /// </summary>
+    internal bool ResetLayout(DashboardDocumentViewModel dashboard, ScreenTarget target)
+    {
+        ArgumentNullException.ThrowIfNull(dashboard);
+        if (_store.Sensors.Count == 0)
+        {
+            _dialogs.ShowError("The default layout is built from the detected sensors. Wait until the collector is connected, then try again.");
+            return false;
+        }
+
+        if (!_dialogs.Confirm($"Replace every tile on \"{dashboard.Name}\" with the default cooler screen layout (large numbers filling the screen)?"))
+        {
+            return false;
+        }
+
+        dashboard.ApplyScreenLayout(DefaultDashboard.CreateCoolerScreen(_store.Sensors, target.HardwareId, target.Width, target.Height));
+        return true;
+    }
+
+    internal void RequestEditLayout(DashboardDocumentViewModel dashboard) => EditLayoutRequested?.Invoke(dashboard);
+
+    internal string? PickFile(string title, string filter) => _dialogs.PickOpenFile(title, filter);
+
+    internal string? PickFolder(string title) => _dialogs.PickFolder(title);
+
+    /// <summary>
+    /// Tells each dashboard whether a cooler screen shows it (<see cref="DashboardDocumentViewModel.ScreenUse"/>): one
+    /// that fits the screen's area is then edited in the square frame and drawn as that area. Once set it stays while the
+    /// screen shows the dashboard, so dragging a tile out of the frame doesn't take the frame away.
+    /// </summary>
+    internal void UpdateScreenUse()
+    {
+        foreach (var dashboard in _dashboards.Dashboards)
+        {
+            var screen = Screens.FirstOrDefault(s => s.ShowsDashboard(dashboard));
+            if (screen is null)
+            {
+                dashboard.ScreenUse = null;
+                continue;
+            }
+
+            if (dashboard.ScreenUse is null)
+            {
+                var size = new DashboardScreen { Width = screen.Target.Width, Height = screen.Target.Height };
+                if (dashboard.Document.Screen is not null || ScreenLayoutGrid.For(size).Contains(dashboard.Document.Tiles))
+                {
+                    dashboard.ScreenUse = size;
+                }
+            }
+        }
     }
 
     internal Task SendAsync(string hardwareId, byte[] jpeg) => _store.Client.SendScreenFrameAsync(hardwareId, jpeg);
@@ -92,6 +154,7 @@ public sealed class CoolerScreenService : ObservableObject, IDisposable
         {
             screen.Dispose();
         }
+
     }
 
     private void OnStoreChanged(object? sender, PropertyChangedEventArgs e)
@@ -109,6 +172,8 @@ public sealed class CoolerScreenService : ObservableObject, IDisposable
         {
             screen.OnDashboardsChanged();
         }
+
+        UpdateScreenUse();
     }
 
     /// <summary>One row per reported screen (settings are kept for screens that are away), then each starts or stops.</summary>
@@ -149,5 +214,7 @@ public sealed class CoolerScreenService : ObservableObject, IDisposable
         {
             screen.UpdateRunning();
         }
+
+        UpdateScreenUse();
     }
 }
