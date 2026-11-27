@@ -14,8 +14,9 @@ namespace SpaceDeck.Collector.Plugins;
 /// a folder no untrusted account can write to) before a byte is written. One client at a time: a newly verified connection
 /// replaces the older one (the newest is the live FanControl).</para>
 /// <para>Frames come from <see cref="ScreenRelay.Mailbox"/>: each is written once, the newest per screen, never one older
-/// than 5 s, and at most one message every <see cref="MinMessageGap"/> in all (the plugin disconnects above 30 a second on
-/// average). A client that doesn't take a frame within <see cref="WriteTimeout"/>, or writes anything, is disconnected.</para>
+/// than 5 s, and paced by <see cref="ScreenPipePacer"/>: written the moment a token is there, at most 30 a second in all
+/// on average and 6 at once (the plugin disconnects above 30 a second on average). A client that doesn't take a frame
+/// within <see cref="WriteTimeout"/>, or writes anything, is disconnected.</para>
 /// </remarks>
 public sealed partial class ScreenPipeServer : BackgroundService
 {
@@ -23,15 +24,6 @@ public sealed partial class ScreenPipeServer : BackgroundService
 
     /// <summary>A frame not taken by the client within this long ends the connection (the plugin reads all the time).</summary>
     internal static readonly TimeSpan WriteTimeout = TimeSpan.FromSeconds(10);
-
-    /// <summary>
-    /// Messages a second at most, in all: one screen's frames at their own limit, and within the plugin's (30 a second on
-    /// average, bursts of 60).
-    /// </summary>
-    internal const int MaxMessagesPerSecond = ScreenFrameRules.MaxFramesPerSecond;
-
-    /// <summary>At most <see cref="MaxMessagesPerSecond"/>, evenly; in ticks, so a thirtieth of a second isn't rounded.</summary>
-    internal static readonly TimeSpan MinMessageGap = TimeSpan.FromTicks(TimeSpan.TicksPerSecond / MaxMessagesPerSecond);
 
     private const int MaxLoggedReasons = 1000;
 
@@ -319,25 +311,23 @@ public sealed partial class ScreenPipeServer : BackgroundService
 
     private async Task<string?> WriteFramesAsync(Connection connection, NamedPipeServerStream pipe, CancellationToken token)
     {
-        var lastWrite = long.MinValue;
+        var pacer = new ScreenPipePacer(_relay.Mailbox, _time);
         while (true)
         {
             await connection.Wake.WaitAsync(token).ConfigureAwait(false);
             while (true)
             {
-                if (lastWrite != long.MinValue)
+                if (pacer.TryTake(out var wait) is not { } frame)
                 {
-                    var since = _time.GetElapsedTime(lastWrite);
-                    if (since < MinMessageGap)
+                    if (wait == TimeSpan.Zero)
                     {
-                        await Task.Delay(MinMessageGap - since, _time, token).ConfigureAwait(false);
+                        break; // nothing waiting: until the next frame wakes the writer
                     }
-                }
 
-                // Taken after the pacing wait, so a frame that was replaced meanwhile goes out as its newest version.
-                if (_relay.Mailbox.Take() is not { } frame)
-                {
-                    break;
+                    // No token yet: back when one is due. The timer may round that up, but the frame waits in its slot
+                    // (replaced by any newer one) and goes out then, so nothing is lost at up to 30 a second.
+                    await Task.Delay(wait, _time, token).ConfigureAwait(false);
+                    continue;
                 }
 
                 var message = ScreenPipeProtocol.Encode(frame.ScreenId, frame.Jpeg);
@@ -355,7 +345,6 @@ public sealed partial class ScreenPipeServer : BackgroundService
                     }
                 }
 
-                lastWrite = _time.GetTimestamp();
                 _relay.CountSent();
             }
         }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO.Pipes;
 using System.Threading.Channels;
 using SpaceDeck.Collector.Plugins;
@@ -72,6 +73,9 @@ internal sealed partial class ClientSession
     /// <summary>Set when the session ends: its global slots are given back, and no new ones are taken.</summary>
     private bool _closed;
 
+    /// <summary>The client program's name for the screen status line, looked up at its first screen frame. Read loop only.</summary>
+    private string? _senderName;
+
     /// <param name="screens">Where cooler screen frames go; null = none (a replay), and frames are ignored.</param>
     public ClientSession(int id, NamedPipeServerStream pipe, SensorHub hub, ILogger logger, ScreenRelay? screens = null)
     {
@@ -139,12 +143,17 @@ internal sealed partial class ClientSession
             _hub.StatusChanged -= OnStatus;
             _hub.CollectorStatusChanged -= OnCollectorStatus;
             ReleaseAllGlobalHistorySlots(); // answers that will never be sent
+            _screens?.ReleaseSender(_id); // the screens it sent to are free for the next sender
             await _pipe.DisposeAsync().ConfigureAwait(false);
             _wake.Dispose();
             _historySlots.Dispose();
             LogDisconnected(_logger, _id);
         }
     }
+
+    /// <summary>"SpaceDeck", "spacedeck-cli": the client's program, or its session number when Windows can't say.</summary>
+    private string SenderName() =>
+        _senderName ??= PluginPipeClient.ProgramNameOf(_pipe) ?? string.Create(CultureInfo.InvariantCulture, $"client {_id}");
 
     private void OnCatalog(SensorCatalog catalog) => EnqueueControl(new CatalogMessage(catalog));
 
@@ -258,8 +267,8 @@ internal sealed partial class ClientSession
                     break;
 
                 case ScreenFrameRequest frame:
-                    // Checked, rate-limited and kept (newest only) by the relay; never answered.
-                    _screens?.Submit(frame);
+                    // Checked, kept to one sender per screen, rate-limited and kept (newest only) by the relay; never answered.
+                    _screens?.Submit(frame, _id, SenderName());
                     break;
 
                 case SetConfigRequest config:

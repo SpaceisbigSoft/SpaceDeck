@@ -7,8 +7,8 @@ only program that opens the cooler (one owner, one lock for status, pump and scr
 
 ```
 SpaceDeck.App ──app pipe (ScreenFrame)──► Collector ──\\.\pipe\SpaceDeck.Screen──► FanControl plugin ──HID 0x0E──► cooler
-   draws 480×480 JPEG                     keeps the latest,                         validates, sends on the
-   every 1–5 s (up to 30 a second)        forwards new frames                       cooler's worker thread
+   draws 480×480 JPEG                     one sender per screen,                    validates, sends on the
+   every 1–5 s (up to 30 a second)        keeps the latest, forwards new frames     cooler's worker thread
 ```
 
 **What a frame can do:** show a picture on the cooler's screen. Nothing on this pipe is a fan, pump or lighting
@@ -41,13 +41,25 @@ A new app-pipe request `ScreenFrame { HardwareId, Jpeg }` (protocol version bump
 - `HardwareId`: a hardware id the collector has from the plugin with a `screen` (e.g. `lianli:/LianLi/0`).
 - `Jpeg`: 1 byte – 256 KiB, starts `FF D8`, ends `FF D9`, the screen's size (the collector checks the markers and
   the size field only; it does not decode).
-- At most 30 frames a second per hardware id (in any one second); more are dropped (counted in Diagnostics), not
-  queued. 30 is enough for smooth motion and what the plugin sends to a cooler at most.
-- The collector writes to the screen pipe at most 30 messages a second in all, evenly (one every 1/30 s), the newest
-  waiting frame each time.
-- Diagnostics shows the pipe's status line, e.g. `Screen pipe connected · 1200 frames sent · 4 dropped · 29.8 frames/s`:
-  frames written to the plugin and dropped since the collector started, and frames a second written over the last 5 s.
-  `spacedeck-cli screen-test --hardware <id> --fps <1–30>` reads it back to measure what the path carries.
+- **One sender per screen.** The app-pipe client whose frame was last accepted for a screen owns it; frames for that
+  screen from any other client are refused (counted apart, as "refused (another sender)", not as dropped) until the
+  owner has sent nothing for 3 s or disconnects, and then the next sender takes over. So the app's dashboard and a
+  `screen-test` never interleave on one screen (the one that was there first keeps it).
+- At most 30 frames a second per hardware id on average, as a token bucket: 6 tokens, refilled at 30 a second. A frame
+  with a token passes at once, so a stream of up to 30 a second passes whole however its frames jitter (a timer tick
+  early or late); a frame without one is dropped (counted in Diagnostics), not queued. 30 is enough for smooth motion
+  and what the plugin sends to a cooler at most.
+- The collector writes to the screen pipe at most 30 messages a second in all on average, with the same kind of bucket
+  (6, refilled at 30 a second), and never sleeps to pace: a frame is written the moment it arrives while a token is
+  there. Without a token the frame waits in its slot (newest only) and the writer wakes when the next token is due;
+  the system timer may round that wake up (15.6 ms on Windows), but no frame of a stream of up to 30 a second is lost
+  to it. (A fixed 33.3 ms gap slept on that timer is 46.8 ms: 21 frames a second.)
+- Diagnostics shows the pipe's status line, e.g. `Screen pipe connected · 1200 frames sent · 4 dropped · 29.8 frames/s
+  · 40 refused (another sender) · from SpaceDeck`: frames written to the plugin and dropped since the collector started,
+  frames a second written over the last 5 s, then (when there are any) frames refused because another client held the
+  screen and the programs sending now. `spacedeck-cli screen-test --hardware <id> --fps <1–30> --quality <30–100>` reads
+  it back to measure what the path carries, and warns once when its frames are refused because another sender (the
+  app) holds the screen.
 - The collector keeps only the newest frame per screen and forwards each frame once. It never forwards a frame older
   than 5 s (so a frame that waited for the plugin to reconnect is dropped, not shown late).
 - Who may send: the same clients that may use the app pipe today (Authenticated Users). A frame can only change the
@@ -90,7 +102,9 @@ it has no screen for is ignored (logged once).
 - Keeps only the newest frame per cooler (a slot, replaced, never queued) and drops a frame it has held for more than
   5 s without sending.
 - Sends it on that cooler's worker thread, between the status polls, as 0x0E in 1013-byte B packets, at most
-  30 frames a second per cooler (a frame within 1/30 s of the last waits, replaced by any newer one). The status poll
+  30 frames a second per cooler on average and at most one per worker tick: a token bucket of 3, refilled at 30 a
+  second, so jittered frames at up to 30 a second are all sent at once; a frame without a token waits for a later
+  tick, replaced by any newer one. The status poll
   stays at most every 500 ms however often frames wake the worker. A failed write costs the frame and is logged; fan
   and pump control never wait on a screen frame for more than one transfer.
 - Once a minute while frames are sent, `plugin.log` has one line per cooler: frames sent, frames dropped before

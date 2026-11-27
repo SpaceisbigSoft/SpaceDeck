@@ -130,28 +130,90 @@ public class ScreenTests
         Assert.False(ScreenFrameRules.TryReadSize(jpeg, out _, out _));
     }
 
-    // ---- Rate limit -------------------------------------------------------------------------------------------------
+    // ---- Rate limit: token buckets ------------------------------------------------------------------------------------
+
+    private const string Cli = "spacedeck-cli";
+
+    private const string App = "SpaceDeck";
+
+    /// <summary>
+    /// 600 frame times from 1 s on at <paramref name="framesPerSecond"/>, each early or late by up to 16 ms (a timer tick and
+    /// more): alternately 16 ms early and late, or spread over −16…+16 ms. Never before the frame ahead of it (at 60 a
+    /// second the jitter is larger than the gap).
+    /// </summary>
+    private static List<long> JitteredFrames(int framesPerSecond, bool alternating)
+    {
+        var times = new List<long>();
+        for (var i = 0; i < 600; i++)
+        {
+            var jitterMs = alternating ? (i % 2 == 0 ? -16 : 16) : ((i * 13) % 33) - 16;
+            var at = TimeSpan.TicksPerSecond + (i * TimeSpan.TicksPerSecond / framesPerSecond) + (jitterMs * TimeSpan.TicksPerMillisecond);
+            times.Add(times.Count == 0 ? at : Math.Max(at, times[^1]));
+        }
+
+        return times;
+    }
 
     [Fact]
-    public void Gate_AllowsThirtyFramesInAnySecond_PerScreen()
+    public void Bucket_GivesItsCapacityAtOnce_ThenOneTokenEachThirtiethOfASecond()
+    {
+        var time = new ManualClock();
+        var bucket = new ScreenFrameBucket(6, 30, time);
+        for (var i = 0; i < 6; i++)
+        {
+            Assert.Equal(TimeSpan.Zero, bucket.Wait());
+            Assert.True(bucket.TryTake());
+        }
+
+        Assert.False(bucket.TryTake());
+        Assert.Equal(TimeSpan.FromTicks(333_334), bucket.Wait()); // a thirtieth of a second, rounded up to a whole tick
+        time.Advance(0.033);
+        Assert.False(bucket.TryTake());
+        Assert.Equal(TimeSpan.FromTicks(3_334), bucket.Wait());
+        time.Advance(0.001);
+        Assert.True(bucket.TryTake());
+
+        time.Advance(10); // a quiet spell fills it, but no further than its capacity
+        for (var i = 0; i < 6; i++)
+        {
+            Assert.True(bucket.TryTake());
+        }
+
+        Assert.False(bucket.TryTake());
+    }
+
+    [Fact]
+    public void Bucket_TakeGoesBeyondTheTokens_AndWaitSaysWhenTheyArePaidBack()
+    {
+        var time = new ManualClock();
+        var bucket = new ScreenFrameBucket(1, 30, time);
+        bucket.Take();
+        bucket.Take();
+        Assert.Equal(TimeSpan.FromTicks(666_667), bucket.Wait());
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ScreenFrameBucket(0, 30, time));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ScreenFrameBucket(6, 0, time));
+    }
+
+    [Fact]
+    public void Gate_LetsSixFramesAtOnce_ThenThirtyASecond_PerScreen()
     {
         Assert.Equal(30, ScreenFrameRules.MaxFramesPerSecond);
+        Assert.Equal(6, ScreenFrameRules.BurstFrames);
         var time = new ManualClock();
         var gate = new ScreenFrameGate(time);
 
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 6; i++)
         {
-            Assert.True(gate.TryAccept("LianLi/0"));
-            time.Advance(0.03);
+            Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("LianLi/0", 1, Cli));
         }
 
-        Assert.False(gate.TryAccept("LianLi/0")); // a 31st at 0.9 s
-        Assert.True(gate.TryAccept("LianLi/1")); // another screen has its own budget
-        time.Advance(0.1); // 1.0 s: the first frame is a second old
-        Assert.True(gate.TryAccept("LianLi/0"));
-        Assert.False(gate.TryAccept("LianLi/0")); // the one at 0.03 s is still within the last second
-        time.Advance(0.03); // 1.03 s
-        Assert.True(gate.TryAccept("LianLi/0"));
+        Assert.Equal(ScreenFrameVerdict.OverLimit, gate.TryAccept("LianLi/0", 1, Cli)); // a 7th at once
+        Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("LianLi/1", 1, Cli)); // another screen has its own bucket
+        time.Advance(0.033);
+        Assert.Equal(ScreenFrameVerdict.OverLimit, gate.TryAccept("LianLi/0", 1, Cli)); // a thirtieth of a second is 33.3 ms
+        time.Advance(0.001);
+        Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("LianLi/0", 1, Cli));
+        Assert.Equal(ScreenFrameVerdict.OverLimit, gate.TryAccept("LianLi/0", 1, Cli));
     }
 
     [Fact]
@@ -159,18 +221,230 @@ public class ScreenTests
     {
         var time = new ManualClock();
         var gate = new ScreenFrameGate(time);
-        for (var i = 0; i < 30; i++)
+        for (var i = 0; i < 6; i++)
         {
-            Assert.True(gate.TryAccept("s"));
+            Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("s", 1, Cli));
         }
 
         for (var i = 0; i < 10; i++)
         {
-            Assert.False(gate.TryAccept("s"));
+            Assert.Equal(ScreenFrameVerdict.OverLimit, gate.TryAccept("s", 1, Cli));
         }
 
-        time.Advance(1);
-        Assert.True(gate.TryAccept("s"));
+        time.Advance(0.2); // six thirtieths of a second: the bucket is full again, however many were refused
+        for (var i = 0; i < 6; i++)
+        {
+            Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("s", 1, Cli));
+        }
+
+        Assert.Equal(ScreenFrameVerdict.OverLimit, gate.TryAccept("s", 1, Cli));
+    }
+
+    [Theory]
+    [InlineData(24, false)]
+    [InlineData(30, false)]
+    [InlineData(24, true)]
+    [InlineData(30, true)]
+    public void Gate_AcceptsEveryFrameOfAStreamOfUpToThirtyASecond_HoweverItJitters(int framesPerSecond, bool alternating)
+    {
+        var time = new ManualClock();
+        var gate = new ScreenFrameGate(time);
+        foreach (var at in JitteredFrames(framesPerSecond, alternating))
+        {
+            time.Set(at);
+            Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("LianLi/0", 1, Cli));
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Gate_HoldsSixtyASecondToThirty(bool alternating)
+    {
+        var time = new ManualClock();
+        var gate = new ScreenFrameGate(time);
+        var accepted = 0;
+        foreach (var at in JitteredFrames(60, alternating))
+        {
+            time.Set(at);
+            accepted += gate.TryAccept("LianLi/0", 1, Cli) == ScreenFrameVerdict.Accepted ? 1 : 0;
+        }
+
+        Assert.InRange(accepted, 300, 306); // ten seconds at 30, and the first burst of 6
+    }
+
+    [Fact]
+    public void Gate_TwoInterleavedSenders_OnlyTheFirstOnesFramesPass()
+    {
+        var time = new ManualClock();
+        var gate = new ScreenFrameGate(time);
+        Assert.Empty(gate.Senders());
+
+        for (var i = 0; i < 100; i++)
+        {
+            var (sender, name) = i % 2 == 0 ? (1L, Cli) : (2L, App);
+            Assert.Equal(i % 2 == 0 ? ScreenFrameVerdict.Accepted : ScreenFrameVerdict.AnotherSender, gate.TryAccept("LianLi/0", sender, name));
+            time.Advance(0.02);
+        }
+
+        Assert.Equal(new[] { Cli }, gate.Senders());
+        Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("LianLi/1", 2, App)); // another screen is free for it
+        Assert.Equal(new[] { App, Cli }, gate.Senders());
+    }
+
+    [Fact]
+    public void Gate_TheNextSenderTakesOver_AfterTheOwnerSentNothingForThreeSeconds()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(3), ScreenFrameRules.SenderIdle);
+        var time = new ManualClock();
+        var gate = new ScreenFrameGate(time);
+        Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("LianLi/0", 1, Cli));
+        time.Advance(2.999);
+        Assert.Equal(ScreenFrameVerdict.AnotherSender, gate.TryAccept("LianLi/0", 2, App)); // doesn't keep the screen busy
+        time.Advance(0.001);
+        Assert.Empty(gate.Senders());
+        Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("LianLi/0", 2, App));
+        Assert.Equal(ScreenFrameVerdict.AnotherSender, gate.TryAccept("LianLi/0", 1, Cli));
+        Assert.Equal(new[] { App }, gate.Senders());
+
+        // Frames over the rate still count as sending: the owner keeps the screen while it sends at all.
+        for (var i = 0; i < 40; i++)
+        {
+            gate.TryAccept("LianLi/0", 2, App);
+            time.Advance(0.1);
+            Assert.Equal(ScreenFrameVerdict.AnotherSender, gate.TryAccept("LianLi/0", 1, Cli));
+        }
+    }
+
+    [Fact]
+    public void Gate_TheNextSenderTakesOver_WhenTheOwnerDisconnects()
+    {
+        var time = new ManualClock();
+        var gate = new ScreenFrameGate(time);
+        Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("LianLi/0", 1, Cli));
+        gate.Forget(3); // a client that holds nothing
+        Assert.Equal(ScreenFrameVerdict.AnotherSender, gate.TryAccept("LianLi/0", 2, App));
+
+        gate.Forget(1);
+        Assert.Empty(gate.Senders());
+        Assert.Equal(ScreenFrameVerdict.Accepted, gate.TryAccept("LianLi/0", 2, App));
+        Assert.Equal(ScreenFrameVerdict.AnotherSender, gate.TryAccept("LianLi/0", 1, Cli));
+    }
+
+    // ---- Screen pipe pacing -------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The screen pipe's writer on a manual clock: each frame is put in the mailbox as it comes and written at once unless
+    /// the writer sleeps; a writer without a token sleeps until one is due, rounded up to Windows' 15.625 ms timer tick (the
+    /// wake a real Task.Delay gets). Returns the frames written.
+    /// </summary>
+    private static int RunWriter(IEnumerable<long> arrivals, ManualClock time, ScreenFrameMailbox mailbox)
+    {
+        const long TimerTick = 156_250;
+        var pacer = new ScreenPipePacer(mailbox, time);
+        var written = 0;
+        long? wake = null; // when the sleeping writer wakes; null while it waits for a frame
+
+        long? Drain()
+        {
+            while (true)
+            {
+                if (pacer.TryTake(out var wait) is not null)
+                {
+                    written++;
+                    continue;
+                }
+
+                if (wait == TimeSpan.Zero)
+                {
+                    return null;
+                }
+
+                var dueAt = time.Ticks + wait.Ticks;
+                return (dueAt + TimerTick - 1) / TimerTick * TimerTick;
+            }
+        }
+
+        foreach (var at in arrivals)
+        {
+            while (wake is { } due && due <= at)
+            {
+                time.Set(due);
+                wake = Drain();
+            }
+
+            time.Set(at);
+            mailbox.Put("LianLi/0", [1]);
+            wake ??= Drain();
+        }
+
+        while (wake is { } due)
+        {
+            time.Set(due);
+            wake = Drain();
+        }
+
+        return written;
+    }
+
+    [Fact]
+    public void Pacer_WritesAFrameTheMomentItIsThere_SixAtOnce_ThenWhenATokenIsDue()
+    {
+        Assert.Equal(30, ScreenPipePacer.MessagesPerSecond);
+        Assert.Equal(6, ScreenPipePacer.BurstMessages);
+        var time = new ManualClock();
+        var mailbox = new ScreenFrameMailbox(time);
+        var pacer = new ScreenPipePacer(mailbox, time);
+        Assert.Null(pacer.TryTake(out var wait));
+        Assert.Equal(TimeSpan.Zero, wait); // nothing waiting
+
+        for (var i = 0; i < 7; i++)
+        {
+            mailbox.Put($"s{i}", [(byte)i]);
+            time.Advance(0.001); // the oldest goes first
+        }
+
+        for (var i = 0; i < 6; i++)
+        {
+            Assert.Equal($"s{i}", pacer.TryTake(out wait)?.ScreenId);
+            Assert.Equal(TimeSpan.Zero, wait);
+        }
+
+        Assert.Null(pacer.TryTake(out wait));
+        Assert.Equal(TimeSpan.FromTicks(333_334), wait);
+        mailbox.Put("s6", [42]); // replaced while the writer waits: the newest goes out
+        time.Advance(wait.TotalSeconds);
+        var frame = pacer.TryTake(out wait);
+        Assert.Equal(new byte[] { 42 }, frame?.Jpeg);
+        Assert.Equal(TimeSpan.Zero, wait);
+        Assert.Null(pacer.TryTake(out wait));
+        Assert.True(wait > TimeSpan.Zero); // no token yet: the writer comes back, finds nothing and waits for a frame
+        Assert.Throws<ArgumentNullException>(() => new ScreenPipePacer(null!, time));
+    }
+
+    [Theory]
+    [InlineData(24, false)]
+    [InlineData(30, false)]
+    [InlineData(24, true)]
+    [InlineData(30, true)]
+    public void Pacer_LosesNoFrameOfAStreamOfUpToThirtyASecond_HoweverItJitters(int framesPerSecond, bool alternating)
+    {
+        var time = new ManualClock();
+        var mailbox = new ScreenFrameMailbox(time);
+        Assert.Equal(600, RunWriter(JitteredFrames(framesPerSecond, alternating), time, mailbox));
+        Assert.Equal(0, mailbox.Dropped);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Pacer_HoldsSixtyASecondToThirty_TheNewestWaiting(bool alternating)
+    {
+        var time = new ManualClock();
+        var mailbox = new ScreenFrameMailbox(time);
+        var written = RunWriter(JitteredFrames(60, alternating), time, mailbox);
+        Assert.InRange(written, 300, 307); // ten seconds at 30, the first burst of 6, and the last one waiting
+        Assert.Equal(600, written + mailbox.Dropped);
     }
 
     // ---- Frames a second, and the status line's counts -----------------------------------------------------------------
@@ -219,6 +493,28 @@ public class ScreenTests
         Assert.Equal(1234, counts.Sent);
         Assert.Equal(56, counts.Dropped);
         Assert.Equal(29.8, counts.FramesPerSecond, 3);
+        Assert.Equal(0, counts.RefusedOtherSender);
+        Assert.Null(counts.Sender);
+    }
+
+    [Fact]
+    public void Counts_WithFramesRefusedForAnotherSender_AndTheSenders_AreReadBack()
+    {
+        var line = "Screen pipe connected · " + new ScreenPipeCounts(10, 2, 30, 45, "SpaceDeck, spacedeck-cli").Format();
+        Assert.Equal("Screen pipe connected · 10 frames sent · 2 dropped · 30.0 frames/s · 45 refused (another sender) · from SpaceDeck, spacedeck-cli", line);
+        var counts = ScreenPipeCounts.TryFind(line);
+        Assert.NotNull(counts);
+        Assert.Equal(45, counts.RefusedOtherSender);
+        Assert.Equal("SpaceDeck, spacedeck-cli", counts.Sender);
+
+        var fromOnly = ScreenPipeCounts.TryFind(new ScreenPipeCounts(1, 0, 1, sender: "SpaceDeck").Format());
+        Assert.NotNull(fromOnly);
+        Assert.Equal(0, fromOnly.RefusedOtherSender);
+        Assert.Equal("SpaceDeck", fromOnly.Sender);
+
+        var tooMany = ScreenPipeCounts.TryFind("1 frames sent · 0 dropped · 1.0 frames/s · 9999999999999999999 refused (another sender)");
+        Assert.NotNull(tooMany);
+        Assert.Equal(0, tooMany.RefusedOtherSender); // past a long: not a count
     }
 
     [Theory]
@@ -235,7 +531,7 @@ public class ScreenTests
     [Fact]
     public void TestSettings_Default_To30SecondsAtOneFrameASecond()
     {
-        Assert.Equal(new ScreenTestSettings(30, 1), ScreenTestSettings.Parse(null, null, out var error));
+        Assert.Equal(new ScreenTestSettings(30, 1, 85), ScreenTestSettings.Parse(null, null, null, out var error));
         Assert.Null(error);
     }
 
@@ -245,7 +541,7 @@ public class ScreenTests
     [InlineData("30", 30)]
     public void TestSettings_TakeAFrameRateFromOneToThirty(string fps, int expected)
     {
-        Assert.Equal(expected, ScreenTestSettings.Parse("60", fps, out var error)?.FramesPerSecond);
+        Assert.Equal(expected, ScreenTestSettings.Parse("60", fps, null, out var error)?.FramesPerSecond);
         Assert.Null(error);
     }
 
@@ -258,7 +554,7 @@ public class ScreenTests
     [InlineData("")]
     public void TestSettings_RefuseAFrameRateOutsideOneToThirty(string fps)
     {
-        Assert.Null(ScreenTestSettings.Parse(null, fps, out var error));
+        Assert.Null(ScreenTestSettings.Parse(null, fps, null, out var error));
         Assert.Equal($"--fps must be a whole number from 1 to 30 (frames a second), not '{fps}'.", error);
     }
 
@@ -270,7 +566,30 @@ public class ScreenTests
     [InlineData("100000", 600)]
     public void TestSettings_KeepTheSecondsWithinFiveToSixHundred(string? seconds, int expected)
     {
-        Assert.Equal(expected, ScreenTestSettings.Parse(seconds, "10", out _)?.Seconds);
+        Assert.Equal(expected, ScreenTestSettings.Parse(seconds, "10", null, out _)?.Seconds);
+    }
+
+    [Theory]
+    [InlineData("30", 30)]
+    [InlineData("60", 60)]
+    [InlineData("100", 100)]
+    public void TestSettings_TakeAJpegQualityFromThirtyToAHundred(string quality, int expected)
+    {
+        Assert.Equal(expected, ScreenTestSettings.Parse(null, "24", quality, out var error)?.Quality);
+        Assert.Null(error);
+    }
+
+    [Theory]
+    [InlineData("29")]
+    [InlineData("101")]
+    [InlineData("0")]
+    [InlineData("85.5")]
+    [InlineData("high")]
+    [InlineData("")]
+    public void TestSettings_RefuseAJpegQualityOutsideThirtyToAHundred(string quality)
+    {
+        Assert.Null(ScreenTestSettings.Parse(null, "24", quality, out var error));
+        Assert.Equal($"--quality must be a whole number from 30 to 100 (JPEG quality), not '{quality}'.", error);
     }
 
     // ---- Newest frame only, never older than 5 s ---------------------------------------------------------------------
@@ -570,6 +889,10 @@ public class ScreenTests
 
         public override long GetTimestamp() => _ticks;
 
+        public long Ticks => _ticks;
+
         public void Advance(double seconds) => _ticks += (long)Math.Round(seconds * TimeSpan.TicksPerSecond);
+
+        public void Set(long ticks) => _ticks = ticks;
     }
 }

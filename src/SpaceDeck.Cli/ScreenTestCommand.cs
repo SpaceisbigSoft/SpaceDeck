@@ -8,12 +8,13 @@ using SpaceDeck.Core.Screens;
 namespace SpaceDeck.Cli;
 
 /// <summary>
-/// <c>spacedeck-cli screen-test --hardware lianli:/LianLi/0 [--seconds 30] [--fps 1]</c>: sends a test picture (colour bars,
+/// <c>spacedeck-cli screen-test --hardware lianli:/LianLi/0 [--seconds 30] [--fps 1] [--quality 85]</c>: sends a test picture (colour bars,
 /// the time, a frame number, a sweeping bar and the measured frame rate) to a cooler screen through the collector, the way
 /// the app does (<c>docs/SCREEN-PIPE.md</c>), at 1 to 30 frames a second. Tests the whole path (collector, screen pipe,
 /// FanControl plugin, cooler) without the app, and how many frames a second it carries: once a second it prints the frames
-/// sent, the frames the collector dropped and the rate achieved. When it ends, the cooler shows its own screen again after
-/// about 20 seconds.
+/// sent, the frames the collector dropped and the rate achieved, and warns once when the collector refuses its frames
+/// because another sender (the app) holds the screen. When it ends, the cooler shows its own screen again after about 20
+/// seconds.
 /// </summary>
 internal static class ScreenTestCommand
 {
@@ -32,6 +33,12 @@ internal static class ScreenTestCommand
 
     /// <summary>Frames rendered and encoded ahead on other cores, so the encoder's time doesn't cap the rate.</summary>
     private static readonly int EncodeAhead = Math.Clamp(Environment.ProcessorCount - 1, 1, 4);
+
+    /// <summary>This program's name as the collector shows a screen's sender ("spacedeck-cli").</summary>
+    private static readonly string OwnName = Path.GetFileNameWithoutExtension(Environment.ProcessPath) ?? "spacedeck-cli";
+
+    /// <summary>The lowest quality a picture over the collector's size limit is encoded at again.</summary>
+    private const int LowestQuality = 25;
 
     public static async Task<int> RunAsync(string pipeName, string? hardwareId, ScreenTestSettings settings, bool verify)
     {
@@ -127,7 +134,7 @@ internal static class ScreenTestCommand
 
             var fps = settings.FramesPerSecond;
             var rate = fps == 1 ? "once a second" : string.Create(CultureInfo.InvariantCulture, $"{fps} times a second");
-            Console.WriteLine($"Sending a test picture to {target.Name} ({target.Id}, {screen.Width} × {screen.Height}) {rate} for {settings.Seconds} s. Ctrl+C to stop.");
+            Console.WriteLine($"Sending a test picture to {target.Name} ({target.Id}, {screen.Width} × {screen.Height}) {rate} for {settings.Seconds} s at JPEG quality {settings.Quality}. Ctrl+C to stop.");
             var (sent, elapsed) = await SendAsync(pipe, target.Id, screen, settings, state, reader, cts.Token).ConfigureAwait(false);
 
             if (reader.IsCompleted && !cts.IsCancellationRequested)
@@ -180,7 +187,10 @@ internal static class ScreenTestCommand
         var length = TimeSpan.FromSeconds(settings.Seconds);
 
         // The collector's counts before the first frame, so the lines show only what this test cost.
-        var droppedBefore = ScreenPipeCounts.TryFind(state.ScreenStatus?.Message)?.Dropped ?? 0;
+        var countsBefore = ScreenPipeCounts.TryFind(state.ScreenStatus?.Message);
+        var droppedBefore = countsBefore?.Dropped ?? 0;
+        var refusedBefore = countsBefore?.RefusedOtherSender ?? 0;
+        var warnedOtherSender = false;
         double? measured = null;
         var encoding = new Queue<Task<EncodedFrame>>();
         var queued = 0;
@@ -189,7 +199,7 @@ internal static class ScreenTestCommand
             var number = ++queued;
             var at = period * (number - 1);
             var shown = measured;
-            encoding.Enqueue(Task.Run(() => Encode(screen, number, at, shown), token));
+            encoding.Enqueue(Task.Run(() => Encode(screen, number, at, shown, settings.Quality), token));
         }
 
         for (var i = 0; i < EncodeAhead; i++)
@@ -235,6 +245,14 @@ internal static class ScreenTestCommand
                 var toPlugin = counts is null ? "?" : counts.FramesPerSecond.ToString("0.0", CultureInfo.InvariantCulture);
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                     $"  {now.TotalSeconds,5:0.0} s  sent {sent,5}  {achieved,5:0.0} fps  collector dropped {dropped,4}  to plugin {toPlugin,5}/s  encode {encodeTime.TotalMilliseconds / sent,5:0.0} ms  {bytes / 1024.0 / sent,5:0.0} KB"));
+                if (!warnedOtherSender && counts is not null && counts.RefusedOtherSender > refusedBefore && !HoldsScreen(counts.Sender))
+                {
+                    warnedOtherSender = true;
+                    Console.Error.WriteLine(
+                        $"Warning: the collector refuses this test's frames because another sender ({counts.Sender ?? "another program"}) holds the screen. "
+                        + "Turn the cooler screen off in SpaceDeck's Settings (or close the app) and run the test again; a screen is free 3 s after its sender's last frame.");
+                }
+
                 lastReport = now;
                 sentAtReport = sent;
             }
@@ -242,6 +260,10 @@ internal static class ScreenTestCommand
 
         return (sent, clock.Elapsed);
     }
+
+    /// <summary>Whether this program is among the senders in the collector's status line ("SpaceDeck, spacedeck-cli").</summary>
+    private static bool HoldsScreen(string? senders) =>
+        senders is not null && senders.Split(", ").Contains(OwnName, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Waits until <paramref name="due"/> on <paramref name="clock"/>: sleeps most of the way, spins the rest.</summary>
     private static async Task WaitUntilAsync(Stopwatch clock, TimeSpan due, CancellationToken token)
@@ -267,23 +289,26 @@ internal static class ScreenTestCommand
     }
 
     /// <summary>Frame <paramref name="number"/> of the test, due <paramref name="at"/> after its start, as a JPEG.</summary>
-    private static EncodedFrame Encode(ScreenInfo screen, int number, TimeSpan at, double? framesPerSecond)
+    private static EncodedFrame Encode(ScreenInfo screen, int number, TimeSpan at, double? framesPerSecond, int quality)
     {
         var started = Stopwatch.GetTimestamp();
         var rgb = ScreenTestPattern.Render(screen.Width, screen.Height, TimeOnly.FromDateTime(DateTime.Now), number, at, framesPerSecond);
-        var jpeg = EncodeUnderLimit(rgb, screen.Width, screen.Height);
+        var jpeg = EncodeUnderLimit(rgb, screen.Width, screen.Height, quality);
         return new EncodedFrame(jpeg, Stopwatch.GetElapsedTime(started));
     }
 
     private sealed record EncodedFrame(byte[] Jpeg, TimeSpan EncodeTime);
 
-    /// <summary>A JPEG of the picture within the collector's 256 KiB limit (quality lowered if it isn't).</summary>
-    private static byte[] EncodeUnderLimit(byte[] rgb, int width, int height)
+    /// <summary>
+    /// A JPEG of the picture at <paramref name="quality"/>, within the collector's 256 KiB limit (quality lowered, down to
+    /// <see cref="LowestQuality"/>, if it isn't).
+    /// </summary>
+    private static byte[] EncodeUnderLimit(byte[] rgb, int width, int height, int quality)
     {
-        for (var quality = 85; ; quality -= 15)
+        for (; ; quality = Math.Max(LowestQuality, quality - 15))
         {
             var jpeg = BaselineJpegEncoder.Encode(rgb, width, height, quality);
-            if (jpeg.Length <= ScreenFrameRules.MaxJpegBytes || quality <= 25)
+            if (jpeg.Length <= ScreenFrameRules.MaxJpegBytes || quality <= LowestQuality)
             {
                 return jpeg;
             }

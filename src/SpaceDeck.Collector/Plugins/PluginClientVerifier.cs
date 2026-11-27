@@ -75,6 +75,18 @@ internal static class PluginPipeClient
         return verifier.Check(processId, FanControlLocator.TryGetImagePath(processId));
     }
 
+    /// <summary>
+    /// The client's program name (its image's file name without the extension, e.g. <c>spacedeck-cli</c>), or null if
+    /// Windows can't tell which process connected or open it. For the screen status line only, never for a decision.
+    /// </summary>
+    public static string? ProgramNameOf(NamedPipeServerStream pipe)
+    {
+        ArgumentNullException.ThrowIfNull(pipe);
+        return GetNamedPipeClientProcessId(pipe.SafePipeHandle, out var pid) && FanControlLocator.TryGetImagePath((int)pid) is { } path
+            ? Path.GetFileNameWithoutExtension(path)
+            : null;
+    }
+
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetNamedPipeClientProcessId(SafeHandle pipe, out uint clientProcessId);

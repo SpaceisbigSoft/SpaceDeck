@@ -14,6 +14,11 @@ public sealed class ScreenPipeTests : IAsyncLifetime
 {
     private const string HardwareId = "lianli:/LianLi/0";
 
+    /// <summary>The app-pipe client the frames come from, unless a test says otherwise.</summary>
+    private const long Sender = 1;
+
+    private const string SenderName = "spacedeck-cli";
+
     private static readonly PluginCatalog WithScreen = new(
         [
             new PluginHardware("LianLi/0", "Lian Li GA II LCD", PluginHardwareKind.Cooler, new ScreenInfo(480, 480)),
@@ -93,34 +98,75 @@ public sealed class ScreenPipeTests : IAsyncLifetime
     public void Relay_RefusesFramesForUnknownScreensWrongSizesAndBadMarkers()
     {
         _bridge.ApplyCatalog(1, WithScreen);
-        _relay.Submit(new ScreenFrameRequest("lianli:/LianLi/w1", Jpeg(480, 480))); // no screen
-        _relay.Submit(new ScreenFrameRequest("lhm:/cpu/0", Jpeg(480, 480)));
-        _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(320, 240)));
-        _relay.Submit(new ScreenFrameRequest(HardwareId, [0xFF, 0xD8, 0x00]));
-        _relay.Submit(new ScreenFrameRequest(null!, Jpeg(480, 480)));
-        _relay.Submit(new ScreenFrameRequest(HardwareId, null!));
+        _relay.Submit(new ScreenFrameRequest("lianli:/LianLi/w1", Jpeg(480, 480)), Sender, SenderName); // no screen
+        _relay.Submit(new ScreenFrameRequest("lhm:/cpu/0", Jpeg(480, 480)), Sender, SenderName);
+        _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(320, 240)), Sender, SenderName);
+        _relay.Submit(new ScreenFrameRequest(HardwareId, [0xFF, 0xD8, 0x00]), Sender, SenderName);
+        _relay.Submit(new ScreenFrameRequest(null!, Jpeg(480, 480)), Sender, SenderName);
+        _relay.Submit(new ScreenFrameRequest(HardwareId, null!), Sender, SenderName);
 
         Assert.Equal(6, _relay.Dropped);
         Assert.Null(_relay.Mailbox.Take());
     }
 
     [Fact]
-    public void Relay_KeepsAtMostThirtyFramesASecond_AndOnlyTheNewest()
+    public void Relay_KeepsAtMostSixFramesAtOnce_AndOnlyTheNewest()
     {
-        Assert.Equal(30, ScreenFrameRules.MaxFramesPerSecond);
+        var time = new ManualTimeProvider();
+        var relay = new ScreenRelay(_bridge, NullLogger<ScreenRelay>.Instance, time);
+        Assert.Equal(6, ScreenFrameRules.BurstFrames);
         _bridge.ApplyCatalog(1, WithScreen);
-        for (var i = 1; i <= 30; i++)
+        for (var i = 1; i <= 6; i++)
         {
-            _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, (byte)i))); // each replaces the one before (dropped)
+            relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, (byte)i)), Sender, SenderName); // each replaces the one before (dropped)
         }
 
-        _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, 31))); // a 31st within a second: refused
+        relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, 7)), Sender, SenderName); // a 7th at once: refused
 
-        var frame = _relay.Mailbox.Take();
+        var frame = relay.Mailbox.Take();
         Assert.NotNull(frame);
         Assert.Equal("LianLi/0", frame.ScreenId);
-        Assert.Equal(Jpeg(480, 480, 30), frame.Jpeg);
-        Assert.Equal(30, _relay.Dropped);
+        Assert.Equal(Jpeg(480, 480, 6), frame.Jpeg);
+        Assert.Equal(6, relay.Dropped);
+        Assert.Equal(0, relay.RefusedOtherSender);
+    }
+
+    [Fact]
+    public void Relay_TakesFramesFromOneSenderPerScreen_CountsTheOthersApart_AndFreesTheScreenOnDisconnect()
+    {
+        var time = new ManualTimeProvider();
+        var relay = new ScreenRelay(_bridge, NullLogger<ScreenRelay>.Instance, time);
+        _bridge.ApplyCatalog(1, WithScreen);
+        relay.SetConnected(true);
+
+        // The test and the app interleaved: only the test's frames (it was first) pass.
+        for (var i = 0; i < 10; i++)
+        {
+            relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, (byte)i)), 1, "spacedeck-cli");
+            Assert.Equal(Jpeg(480, 480, (byte)i), relay.Mailbox.Take()?.Jpeg);
+            relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, 99)), 2, "SpaceDeck");
+            Assert.Null(relay.Mailbox.Take());
+            time.Advance(TimeSpan.FromMilliseconds(40));
+        }
+
+        Assert.Equal(10, relay.RefusedOtherSender);
+        Assert.Equal(0, relay.Dropped);
+        Assert.Equal("Screen pipe connected · 0 frames sent · 0 dropped · 0.0 frames/s · 10 refused (another sender) · from spacedeck-cli",
+            Assert.Single(relay.StatusEntries()).Message);
+
+        // The test disconnects: the app's next frame takes the screen.
+        relay.ReleaseSender(1);
+        relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, 100)), 2, "SpaceDeck");
+        Assert.Equal(Jpeg(480, 480, 100), relay.Mailbox.Take()?.Jpeg);
+        relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, 101)), 1, "spacedeck-cli");
+        Assert.Null(relay.Mailbox.Take());
+        Assert.EndsWith("· 11 refused (another sender) · from SpaceDeck", Assert.Single(relay.StatusEntries()).Message, StringComparison.Ordinal);
+
+        // Three seconds without a frame from the app, and the next sender takes over.
+        time.Advance(TimeSpan.FromSeconds(3));
+        Assert.EndsWith("· 11 refused (another sender)", Assert.Single(relay.StatusEntries()).Message, StringComparison.Ordinal);
+        relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480, 102)), 1, "spacedeck-cli");
+        Assert.Equal(Jpeg(480, 480, 102), relay.Mailbox.Take()?.Jpeg);
     }
 
     [Fact]
@@ -147,13 +193,6 @@ public sealed class ScreenPipeTests : IAsyncLifetime
     }
 
     [Fact]
-    public void Pipe_PacesItsMessagesAtThirtyASecond()
-    {
-        Assert.Equal(30, ScreenPipeServer.MaxMessagesPerSecond);
-        Assert.Equal(TimeSpan.FromTicks(333_333), ScreenPipeServer.MinMessageGap);
-    }
-
-    [Fact]
     public void Relay_Status_AppearsOnlyOnceAScreenIsKnown()
     {
         Assert.Empty(_relay.StatusEntries());
@@ -176,7 +215,7 @@ public sealed class ScreenPipeTests : IAsyncLifetime
         await WaitUntilAsync(() => _relay.IsConnected, timeout.Token);
 
         var jpeg = Jpeg(480, 480);
-        _relay.Submit(new ScreenFrameRequest(HardwareId, jpeg));
+        _relay.Submit(new ScreenFrameRequest(HardwareId, jpeg), Sender, SenderName);
         var message = await ReadMessageAsync(pipe, timeout.Token);
 
         Assert.Equal(ScreenPipeProtocol.Encode("LianLi/0", jpeg), message);
@@ -200,7 +239,7 @@ public sealed class ScreenPipeTests : IAsyncLifetime
     {
         _verifier.Accept = false;
         _bridge.ApplyCatalog(1, WithScreen);
-        _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480)));
+        _relay.Submit(new ScreenFrameRequest(HardwareId, Jpeg(480, 480)), Sender, SenderName);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await using var pipe = await ConnectAsync(PipeDirection.In, timeout.Token);
 
@@ -234,7 +273,7 @@ public sealed class ScreenPipeTests : IAsyncLifetime
         await WaitUntilAsync(() => _relay.IsConnected, timeout.Token);
 
         var jpeg = Jpeg(480, 480);
-        _relay.Submit(new ScreenFrameRequest(HardwareId, jpeg));
+        _relay.Submit(new ScreenFrameRequest(HardwareId, jpeg), Sender, SenderName);
         Assert.Equal(ScreenPipeProtocol.Encode("LianLi/0", jpeg), await ReadMessageAsync(newer, timeout.Token));
     }
 
