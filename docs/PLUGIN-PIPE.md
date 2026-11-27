@@ -61,6 +61,8 @@ before `hello`, and `values` before the first `catalog`, disconnect the client.
   and format characters (bidirectional overrides, zero-width characters), line separators and lone surrogates make
   the name invalid.
 - Hardware `kind`: `cooler` or `fans` (anything else → Other).
+- Hardware `screen` (optional): `{"width":480,"height":480,"format":"jpeg"}` for a cooler with a screen SpaceDeck can
+  draw on (`docs/SCREEN-PIPE.md`). Invalid values mean "no screen", never a disconnect.
 - Sensor `kind`: `temperature` (°C), `fan` (rpm) or `control` (%, the duty FanControl is applying). Any other sensor
   kind makes the catalog invalid (the kind decides the unit and the valid range).
 - At most 32 hardware entries and 512 sensors. Every sensor's `hardware` must name a listed hardware id; duplicates

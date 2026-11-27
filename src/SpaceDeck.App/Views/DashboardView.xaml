@@ -76,6 +76,16 @@
               <MenuItem Header="Open in its own window" Command="{Binding OpenWindowCommand}" />
               <MenuItem Header="Reset min/max of this dashboard's sensors" Command="{Binding ResetMinMaxCommand}" />
               <Separator />
+              <MenuItem Header="Background picture or GIF…" Command="{Binding Selected.ChooseBackgroundCommand}" />
+              <MenuItem Header="Fit the background inside (don't crop it)" IsCheckable="True"
+                        IsChecked="{Binding Selected.BackgroundFits}" IsEnabled="{Binding Selected.HasBackground}" />
+              <MenuItem Header="Dim the background" IsCheckable="True"
+                        IsChecked="{Binding Selected.BackgroundDimmed}" IsEnabled="{Binding Selected.HasBackground}" />
+              <MenuItem Header="Remove the background" Command="{Binding Selected.RemoveBackgroundCommand}"
+                        IsEnabled="{Binding Selected.HasBackground}" />
+              <MenuItem Header="Square layout for a cooler screen" IsCheckable="True" IsChecked="{Binding Selected.IsMarkedScreenLayout}"
+                        ToolTip="Edit it in a frame of the cooler screen's shape; the cooler shows exactly that area" />
+              <Separator />
               <MenuItem Header="Export…" Command="{Binding ExportDashboardCommand}" />
               <MenuItem Header="Import…" Command="{Binding ImportDashboardCommand}" />
               <Separator />

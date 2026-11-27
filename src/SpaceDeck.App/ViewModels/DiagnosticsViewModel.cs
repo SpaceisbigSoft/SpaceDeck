@@ -14,6 +14,7 @@ using CommunityToolkit.Mvvm.Input;
 using SpaceDeck.App.Services;
 using SpaceDeck.Core.Model;
 using SpaceDeck.Core.Protocol;
+using SpaceDeck.Core.Screens;
 
 namespace SpaceDeck.App.ViewModels;
 
@@ -421,6 +422,14 @@ public sealed partial class DiagnosticsViewModel : ObservableObject
     {
         foreach (var source in _store.SourceStatuses)
         {
+            if (source.Source == ScreenPipeProtocol.StatusSource)
+            {
+                // Next to the lianli source: the cooler screen pipe (connected, frames sent, frames dropped, frames a second).
+                yield return new DiagnosticCheck("Cooler screen pipe", source.Status == SourceStatus.Ok ? DiagnosticState.Ok : DiagnosticState.Info,
+                    source.Message ?? source.Status.ToString());
+                continue;
+            }
+
             switch (source.Status)
             {
                 case SourceStatus.Ok:

@@ -253,7 +253,8 @@ public sealed class SensorRecording
         {
             if (h is not null && !string.IsNullOrEmpty(h.Id))
             {
-                hardware.Add(h with { Name = h.Name ?? h.Id, Source = h.Source ?? "replay" });
+                // No screen: a replay has no cooler to draw on, so Settings mustn't offer one.
+                hardware.Add(h with { Name = h.Name ?? h.Id, Source = h.Source ?? "replay", Screen = null });
             }
         }
 

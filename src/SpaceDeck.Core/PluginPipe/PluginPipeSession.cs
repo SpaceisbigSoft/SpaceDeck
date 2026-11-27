@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using SpaceDeck.Core.Model;
 
 namespace SpaceDeck.Core.PluginPipe;
 
@@ -180,7 +181,7 @@ public sealed class PluginPipeSession
                 "fans" => PluginHardwareKind.Fans,
                 _ => PluginHardwareKind.Other,
             };
-            hardware.Add(new PluginHardware(id, name, kind));
+            hardware.Add(new PluginHardware(id, name, kind, ReadScreen(item)));
         }
 
         var sensors = new List<PluginSensor>(sensorList.GetArrayLength());
@@ -235,6 +236,31 @@ public sealed class PluginPipeSession
         var catalog = new PluginCatalog(hardware, sensors);
         Catalog = catalog;
         return new PluginLineResult(catalog, null);
+    }
+
+    /// <summary>
+    /// The optional <c>screen</c> field of a hardware entry (<c>docs/SCREEN-PIPE.md</c>):
+    /// <c>{"width":480,"height":480,"format":"jpeg"}</c>, sides 1–1024 whole numbers, format <c>jpeg</c>. Anything else
+    /// (missing, not an object, another format, out of range) means "no screen": never a disconnect, so a newer plugin's
+    /// screen kinds don't cut older collectors off.
+    /// </summary>
+    internal static ScreenInfo? ReadScreen(JsonElement hardware)
+    {
+        if (!hardware.TryGetProperty("screen", out var screen) || screen.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        // ValueEquals, not GetString: an odd format string (even invalid UTF-8) is only "not jpeg", never an error.
+        if (!screen.TryGetProperty("format", out var format) || format.ValueKind != JsonValueKind.String || !format.ValueEquals("jpeg")
+            || !screen.TryGetProperty("width", out var w) || w.ValueKind != JsonValueKind.Number || !w.TryGetInt32(out var width)
+            || !screen.TryGetProperty("height", out var h) || h.ValueKind != JsonValueKind.Number || !h.TryGetInt32(out var height))
+        {
+            return null;
+        }
+
+        var info = new ScreenInfo(width, height);
+        return info.IsValid ? info : null;
     }
 
     private static PluginLineResult ReadValues(JsonElement root, PluginCatalog catalog)

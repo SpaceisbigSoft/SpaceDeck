@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using SpaceDeck.Core.Formatting;
 using SpaceDeck.Core.Model;
 using SpaceDeck.Core.PluginPipe;
@@ -18,7 +19,8 @@ namespace SpaceDeck.Collector.Plugins;
 /// (dashboard ids) and stay the one the pipe server feeds. <see cref="Dispose"/> therefore releases nothing and the
 /// instance can be opened again; it holds no unmanaged resources.</para>
 /// <para>The catalog only grows: sensors a newer catalog drops stay listed (and read blank), so dashboards keep their
-/// layout across plugin restarts. The first definition of an id is kept.</para>
+/// layout across plugin restarts. The first definition of an id is kept, except a hardware entry's screen
+/// (<c>docs/SCREEN-PIPE.md</c>), which follows the feeding connection's latest catalog.</para>
 /// </remarks>
 public sealed class PluginBridgeSource : ISensorSource
 {
@@ -45,7 +47,7 @@ public sealed class PluginBridgeSource : ISensorSource
     // Feeding side, guarded by _gate.
     private readonly Lock _gate = new();
     private readonly List<HardwareInfo> _hardware = [];
-    private readonly HashSet<string> _hardwareIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _hardwareIndex = new(StringComparer.Ordinal);
     private readonly List<SensorInfo> _sensors = [];
     private readonly Dictionary<string, int> _sensorIndex = new(StringComparer.Ordinal);
 
@@ -84,6 +86,34 @@ public sealed class PluginBridgeSource : ISensorSource
 
     /// <summary>True while a plugin connection has sent a valid catalog and is still connected.</summary>
     public bool IsConnected => _snapshot.Connected;
+
+    /// <summary>True when some kept hardware has a screen (any thread).</summary>
+    public bool HasScreens => _snapshot.Catalog.Hardware.Any(h => h.Screen is not null);
+
+    /// <summary>
+    /// The screen of the kept hardware <paramref name="hardwareId"/> (a published id, <c>lianli:/LianLi/0</c>), if it has a
+    /// valid one. Any thread.
+    /// </summary>
+    public bool TryGetScreen(string? hardwareId, [NotNullWhen(true)] out ScreenInfo? screen)
+    {
+        foreach (var hardware in _snapshot.Catalog.Hardware)
+        {
+            if (string.Equals(hardware.Id, hardwareId, StringComparison.Ordinal) && hardware.Screen is { IsValid: true } found)
+            {
+                screen = found;
+                return true;
+            }
+        }
+
+        screen = null;
+        return false;
+    }
+
+    /// <summary>The plugin's own id (<c>LianLi/0</c>) for a published id (<c>lianli:/LianLi/0</c>); null for another source's.</summary>
+    public static string? PluginIdOf(string? hardwareId) =>
+        hardwareId is not null && hardwareId.StartsWith(IdPrefix, StringComparison.Ordinal) && hardwareId.Length > IdPrefix.Length
+            ? hardwareId[IdPrefix.Length..]
+            : null;
 
     public void Open()
     {
@@ -145,9 +175,19 @@ public sealed class PluginBridgeSource : ISensorSource
             foreach (var hardware in catalog.Hardware)
             {
                 var id = IdPrefix + hardware.Id;
-                if (_hardwareIds.Count < MaxHardware && _hardwareIds.Add(id))
+                if (_hardwareIndex.TryGetValue(id, out var existing))
                 {
-                    _hardware.Add(new HardwareInfo(id, hardware.Name, MapKind(hardware.Kind), null, SourceName));
+                    // A plugin update can add (or drop) a screen without a collector restart.
+                    if (_hardware[existing].Screen != hardware.Screen)
+                    {
+                        _hardware[existing] = _hardware[existing] with { Screen = hardware.Screen };
+                        grew = true;
+                    }
+                }
+                else if (_hardwareIndex.Count < MaxHardware)
+                {
+                    _hardwareIndex[id] = _hardware.Count;
+                    _hardware.Add(new HardwareInfo(id, hardware.Name, MapKind(hardware.Kind), null, SourceName, hardware.Screen));
                     grew = true;
                 }
             }
@@ -164,7 +204,7 @@ public sealed class PluginBridgeSource : ISensorSource
                 }
 
                 var hardwareId = IdPrefix + sensor.HardwareId;
-                if (_sensors.Count >= MaxSensors || !_hardwareIds.Contains(hardwareId))
+                if (_sensors.Count >= MaxSensors || !_hardwareIndex.ContainsKey(hardwareId))
                 {
                     map[i] = -1; // over a cap: not shown
                     continue;

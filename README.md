@@ -17,8 +17,8 @@ SpaceDeck is PawnIO; you don't need the LibreHardwareMonitor app or HWiNFO.
 ## Features
 
 - **Dashboards you design:** a 12-column grid of tiles (big numbers, gauges, bars, sparklines, charts, voltage rails,
-  fans, core maps, network and disk throughput, clocks). Several dashboards as tabs, or each in its own window or
-  overlay.
+  fans, core maps, network and disk throughput, clocks, pictures and animated GIFs), with an optional picture or GIF
+  behind all tiles. Several dashboards as tabs, or each in its own window or overlay.
 - **Screen-edge sidebar:** dock a compact dashboard to the edge of any monitor, [Sidebar Diagnostics](https://github.com/ArcadeRenegade/SidebarDiagnostics) style. It fits
   itself to the screen height and hides during fullscreen games.
 - **All sensors in one place:** search, rename, hide or correct any sensor, and add calculated sensors (e.g. CPU + GPU power).
@@ -28,6 +28,10 @@ SpaceDeck is PawnIO; you don't need the LibreHardwareMonitor app or HWiNFO.
   closed. CSV export and recording sessions with summaries are included.
 - **Fan profiles and automation:** switch FanControl configs by hand (window, tray or phone) or with rules, such as
   "while a game runs" or "CPU above 80 °C for 30 s". SpaceDeck never writes to fans itself.
+- **Cooler screen:** show a dashboard, a picture, an animated GIF, a video (whatever Windows plays) or a slideshow on
+  the Lian Li GA II LCD's own 480×480 screen, smooth at up to 30 frames a second (24 by default), through FanControl
+  and SpaceDeck's Lian Li plugin (off until you turn it on in Settings). Arrange its dashboard like any other, in a
+  square editor with a live preview; the built-in layout fills the screen with large numbers.
 - **Phone and tablet dashboard:** view your dashboards live in a browser on your home network (phone, tablet, Steam
   Deck), paired with a PIN.
 - **16 skins**, °C/°F, 12/24-hour clock, backup and restore, and no telemetry.

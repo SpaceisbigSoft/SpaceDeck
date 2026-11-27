@@ -1,3 +1,5 @@
+using SpaceDeck.Core.Model;
+
 namespace SpaceDeck.Core.PluginPipe;
 
 /// <summary>
@@ -60,7 +62,9 @@ public abstract record PluginMessage;
 public sealed record PluginHello(int Version, string Plugin, string PluginVersion, string Instance) : PluginMessage;
 
 /// <param name="Id">The plugin's own id (published by the collector with a source prefix).</param>
-public sealed record PluginHardware(string Id, string Name, PluginHardwareKind Kind);
+/// <param name="Screen">The optional <c>screen</c> field (<c>docs/SCREEN-PIPE.md</c>): a JPEG screen of this size; null when
+/// the field is missing or isn't valid (never an error).</param>
+public sealed record PluginHardware(string Id, string Name, PluginHardwareKind Kind, ScreenInfo? Screen = null);
 
 /// <param name="HardwareId">The <see cref="PluginHardware.Id"/> this sensor belongs to (checked to exist).</param>
 public sealed record PluginSensor(string Id, string HardwareId, string Name, PluginSensorKind Kind);

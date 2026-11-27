@@ -333,12 +333,12 @@ function defaultTitle(t) {
     case "Uptime": return "Windows uptime";
     case "Throughput": return "Network & disk";
     case "Section": return { cpu: "CPU", gpu: "GPU", memory: "RAM", storage: "Drives", network: "Network", motherboard: "Motherboard", battery: "Battery" }[t.section] || "Section";
-    case "Label": case "Clock": case "Text": return "";
+    case "Label": case "Clock": case "Text": case "Image": return "";
     default: return first ? first.n : "Sensor";
   }
 }
 
-const NO_SENSOR = ["Label", "FanProfiles", "CoreMap", "Clock", "Uptime", "Throughput", "Section"];
+const NO_SENSOR = ["Label", "FanProfiles", "CoreMap", "Clock", "Uptime", "Throughput", "Section", "Image"];
 
 function tile(t, extra) {
   const node = el("div", "tile");
@@ -490,6 +490,7 @@ function tile(t, extra) {
       node.append(grid);
       break;
     }
+    case "Image": break; // pictures stay on the PC: an empty tile keeps the layout
     default: node.append(el("div", "missing", t.type));
   }
   return node;

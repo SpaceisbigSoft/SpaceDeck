@@ -117,6 +117,23 @@ public static class DefaultDashboard
         return doc;
     }
 
+    /// <summary>Name of the dashboard made the first time a cooler screen is turned on.</summary>
+    public const string CoolerScreenName = CoolerScreenLayout.Name;
+
+    /// <summary>
+    /// The built-in cooler screen dashboard (<see cref="CoolerScreenLayout"/>): a screen layout for a
+    /// <paramref name="width"/> × <paramref name="height"/> screen, filled with large numbers: the CPU temperature
+    /// biggest, then the GPU and coolant temperatures and the pump. Sensors are picked by original name and kind;
+    /// coolant and pump come from the cooler with the screen when it has them. Readings that are missing leave no gap.
+    /// </summary>
+    /// <param name="coolerHardwareId">The screen's hardware id, e.g. <c>lianli:/LianLi/0</c>.</param>
+    public static DashboardDocument CreateCoolerScreen(IReadOnlyList<SensorItem> sensors, string? coolerHardwareId, int width, int height)
+    {
+        ArgumentNullException.ThrowIfNull(sensors);
+        var facts = sensors.Select(s => new ScreenSensor(s.Id, s.HardwareId, s.HardwareKind, s.Kind, s.OriginalName, s.IsAdvanced)).ToList();
+        return CoolerScreenLayout.Create(CoolerScreenLayout.Pick(facts, coolerHardwareId), width, height);
+    }
+
     /// <summary>GPUs in order of importance: discrete (has a temperature) first, then by how many sensors they report.</summary>
     internal static List<List<SensorItem>> GpusByImportance(IReadOnlyList<SensorItem> sensors) =>
         sensors.Where(s => s.HardwareKind == HardwareKind.Gpu)
@@ -126,11 +143,10 @@ public static class DefaultDashboard
             .Select(g => g.ToList())
             .ToList();
 
-    /// <summary>Intel first, then AMD (Zen: Tctl/Tdie), then generic names.</summary>
-    internal static readonly string[] CpuTemperatureNames =
-        ["CPU Package", "Core (Tctl/Tdie)", "Core (Tdie)", "Core (Tctl)", "CCDs Max (Tdie)", "Core Max", "Package", "CPU Core"];
+    /// <summary>Intel first, then AMD (Zen: Tctl/Tdie), then generic names (one list, kept in Core).</summary>
+    internal static readonly string[] CpuTemperatureNames = [.. CoolerScreenLayout.CpuTemperatureNames];
 
-    internal static readonly string[] GpuTemperatureNames = ["GPU Core", "GPU Temperature", "GPU Edge"];
+    internal static readonly string[] GpuTemperatureNames = [.. CoolerScreenLayout.GpuTemperatureNames];
 
     /// <summary>The first sensor matching a name in order; otherwise (with <paramref name="anyFallback"/>) any of that kind.</summary>
     internal static SensorItem? Pick(IReadOnlyList<SensorItem> sensors, HardwareKind hardware, SensorKind kind, string[] names, bool anyFallback = true)

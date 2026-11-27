@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using SpaceDeck.App.Services;
 using SpaceDeck.Core.Model;
 using SpaceDeck.Core.Protocol;
+using SpaceDeck.Core.Screens;
 using SpaceDeck.Integrations.FanControl;
 
 namespace SpaceDeck.App.ViewModels;
@@ -96,6 +97,14 @@ public sealed partial class MainViewModel : ObservableObject
             ? NavItems.First(n => n.Key == "diagnostics")
             : NavItems.FirstOrDefault(n => n.Key == settings.LastPage) ?? NavItems[0];
         diagnostics.SetupFinished += () => SelectedNav = NavItems[0];
+
+        // Settings → Cooler screen → "Edit layout": that dashboard, on the dashboard page, in edit mode (the square frame).
+        settingsPage.CoolerScreens.EditLayoutRequested += screenDashboard =>
+        {
+            SelectedNav = NavItems[0];
+            dashboard.Selected = screenDashboard;
+            dashboard.IsEditing = true;
+        };
         diagnostics.IsPageVisible = SelectedNav?.Page == diagnostics;
         history.IsPageVisible = SelectedNav?.Page == history;
 
@@ -331,7 +340,8 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        var problem = _store.SourceStatuses.FirstOrDefault(s => s.Status != SourceStatus.Ok);
+        // The cooler screen pipe isn't a sensor source: its state is in Diagnostics, not a banner.
+        var problem = _store.SourceStatuses.FirstOrDefault(s => s.Status != SourceStatus.Ok && s.Source != ScreenPipeProtocol.StatusSource);
         if (problem is null)
         {
             ShowBanner = false;

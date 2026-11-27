@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.IO.Pipes;
 using System.Threading.Channels;
+using SpaceDeck.Collector.Plugins;
 using SpaceDeck.Collector.Polling;
 using SpaceDeck.Collector.Storage;
 using SpaceDeck.Core.Model;
@@ -22,7 +24,10 @@ namespace SpaceDeck.Collector.Pipe;
 /// </remarks>
 internal sealed partial class ClientSession
 {
-    /// <summary>Largest frame a client may send. Client messages are small (≤ 512 history ids, ≤ 10,000 reset ids).</summary>
+    /// <summary>
+    /// Largest frame a client may send. Client messages are small (≤ 512 history ids, ≤ 10,000 reset ids, a cooler screen
+    /// frame ≤ 256 KiB).
+    /// </summary>
     internal const int MaxClientFrameBytes = 1024 * 1024;
 
     /// <summary>
@@ -52,6 +57,7 @@ internal sealed partial class ClientSession
     private readonly NamedPipeServerStream _pipe;
     private readonly SensorHub _hub;
     private readonly ILogger _logger;
+    private readonly ScreenRelay? _screens;
     private readonly Channel<IProtocolMessage> _control = Channel.CreateUnbounded<IProtocolMessage>(new UnboundedChannelOptions { SingleReader = true });
     private readonly SemaphoreSlim _wake = new(0);
     private ValuesMessage? _latestValues;
@@ -67,12 +73,17 @@ internal sealed partial class ClientSession
     /// <summary>Set when the session ends: its global slots are given back, and no new ones are taken.</summary>
     private bool _closed;
 
-    public ClientSession(int id, NamedPipeServerStream pipe, SensorHub hub, ILogger logger)
+    /// <summary>The client program's name for the screen status line, looked up at its first screen frame. Read loop only.</summary>
+    private string? _senderName;
+
+    /// <param name="screens">Where cooler screen frames go; null = none (a replay), and frames are ignored.</param>
+    public ClientSession(int id, NamedPipeServerStream pipe, SensorHub hub, ILogger logger, ScreenRelay? screens = null)
     {
         _id = id;
         _pipe = pipe;
         _hub = hub;
         _logger = logger;
+        _screens = screens;
     }
 
     public async Task RunAsync(CancellationToken stoppingToken)
@@ -132,12 +143,17 @@ internal sealed partial class ClientSession
             _hub.StatusChanged -= OnStatus;
             _hub.CollectorStatusChanged -= OnCollectorStatus;
             ReleaseAllGlobalHistorySlots(); // answers that will never be sent
+            _screens?.ReleaseSender(_id); // the screens it sent to are free for the next sender
             await _pipe.DisposeAsync().ConfigureAwait(false);
             _wake.Dispose();
             _historySlots.Dispose();
             LogDisconnected(_logger, _id);
         }
     }
+
+    /// <summary>"SpaceDeck", "spacedeck-cli": the client's program, or its session number when Windows can't say.</summary>
+    private string SenderName() =>
+        _senderName ??= PluginPipeClient.ProgramNameOf(_pipe) ?? string.Create(CultureInfo.InvariantCulture, $"client {_id}");
 
     private void OnCatalog(SensorCatalog catalog) => EnqueueControl(new CatalogMessage(catalog));
 
@@ -248,6 +264,11 @@ internal sealed partial class ClientSession
                 case ResetMinMaxRequest reset:
                     LogResetRequested(_logger, _id, reset.SensorIds?.Length);
                     _hub.RequestResetMinMax(reset.SensorIds is null ? null : [.. reset.SensorIds.Where(id => id is not null).Take(10_000)]);
+                    break;
+
+                case ScreenFrameRequest frame:
+                    // Checked, kept to one sender per screen, rate-limited and kept (newest only) by the relay; never answered.
+                    _screens?.Submit(frame, _id, SenderName());
                     break;
 
                 case SetConfigRequest config:

@@ -5,6 +5,7 @@ using SpaceDeck.Core.Alerts;
 using SpaceDeck.Core.Automation;
 using SpaceDeck.Core.Calculated;
 using SpaceDeck.Core.Formatting;
+using SpaceDeck.Core.Screens;
 
 namespace SpaceDeck.App.Services;
 
@@ -131,6 +132,9 @@ public sealed class AppSettings
     /// <summary>Set once the "still running in the tray" hint has been shown.</summary>
     public bool TrayHintShown { get; set; }
 
+    /// <summary>Cooler screens (Settings → Cooler screen), one entry per screen hardware id; off unless turned on.</summary>
+    public List<CoolerScreenSettings> CoolerScreens { get; set; } = [];
+
     /// <summary>Where each dashboard's own window was, keyed by dashboard id (restored next time, reopened at startup).</summary>
     public Dictionary<string, DashboardWindowState> DashboardWindows { get; set; } = new();
 
@@ -186,6 +190,7 @@ public sealed class AppSettings
                 loaded.Ntfy.Topic ??= NtfySettings.NewTopic();
                 loaded.QuietFrom ??= "23:00";
                 loaded.QuietTo ??= "07:00";
+                loaded.CoolerScreens = CoolerScreenSettings.Clean(loaded.CoolerScreens);
                 return loaded;
             }
         }

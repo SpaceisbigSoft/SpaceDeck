@@ -54,6 +54,8 @@ public class FrameCodecTests
             new ResetMinMaxRequest(null),
             new ResetMinMaxRequest(["a"]),
             new CollectorStatusMessage(1000, false, true, false, 3600, true, true, "x", null, StartedUnixMs: 5, MinMaxResetUnixMs: 6, DiskHistory: true),
+            new ScreenFrameRequest("lianli:/LianLi/0", [0xFF, 0xD8, 0xFF, 0xD9]),
+            new CatalogMessage(new SensorCatalog(4, [new HardwareInfo("lianli:/LianLi/0", "Lian Li GA II LCD", HardwareKind.Cooler, null, "lianli", new ScreenInfo(480, 480))], [])),
         ];
 
         using var stream = new MemoryStream();
@@ -87,6 +89,33 @@ public class FrameCodecTests
         Assert.Equal(2, result.Catalog.Sensors.Count);
         Assert.Equal(SampleCatalog().Sensors[0], result.Catalog.Sensors[0]);
         Assert.Equal(SampleCatalog().Hardware[1], result.Catalog.Hardware[1]);
+    }
+
+    [Fact]
+    public async Task HardwareScreen_SurvivesRoundTrip_AndIsNullWhenAbsent()
+    {
+        var withScreen = new HardwareInfo("lianli:/LianLi/0", "Lian Li GA II LCD", HardwareKind.Cooler, null, "lianli", new ScreenInfo(480, 480));
+        using var stream = new MemoryStream();
+        await FrameCodec.WriteAsync(stream, new CatalogMessage(new SensorCatalog(1, [withScreen, SampleCatalog().Hardware[0]], [])));
+        stream.Position = 0;
+
+        var result = Assert.IsType<CatalogMessage>(await FrameCodec.ReadAsync(stream));
+        Assert.Equal(withScreen, result.Catalog.Hardware[0]);
+        Assert.Equal(new ScreenInfo(480, 480), result.Catalog.Hardware[0].Screen);
+        Assert.Null(result.Catalog.Hardware[1].Screen);
+    }
+
+    [Fact]
+    public async Task ScreenFrame_CarriesTheJpegBytes()
+    {
+        byte[] jpeg = [0xFF, 0xD8, 1, 2, 3, 0xFF, 0xD9];
+        using var stream = new MemoryStream();
+        await FrameCodec.WriteAsync(stream, new ScreenFrameRequest("lianli:/LianLi/0", jpeg));
+        stream.Position = 0;
+
+        var result = Assert.IsType<ScreenFrameRequest>(await FrameCodec.ReadAsync(stream));
+        Assert.Equal("lianli:/LianLi/0", result.HardwareId);
+        Assert.Equal(jpeg, result.Jpeg);
     }
 
     [Fact]

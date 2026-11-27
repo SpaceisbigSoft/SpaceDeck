@@ -59,6 +59,10 @@ public sealed partial class SensorStore : ObservableObject
     [ObservableProperty]
     private int _collectorProtocolVersion;
 
+    /// <summary>Hardware with a screen SpaceDeck can draw on (cooler LCDs), from the latest catalog.</summary>
+    [ObservableProperty]
+    private IReadOnlyList<ScreenTarget> _screens = [];
+
     public SensorStore(CollectorClient client, AppSettings settings, SensorCustomizationService customizations)
     {
         ArgumentNullException.ThrowIfNull(client);
@@ -113,6 +117,9 @@ public sealed partial class SensorStore : ObservableObject
 
     /// <summary>The collector keeps history on disk (6 h – 7 d ranges, exports beyond the last hour).</summary>
     public bool SupportsLongHistory => CollectorProtocolVersion >= ProtocolInfo.LongHistoryVersion && CollectorStatus?.DiskHistory == true;
+
+    /// <summary>The collector takes cooler screen frames (protocol 4) and is connected.</summary>
+    public bool SupportsScreens => CollectorProtocolVersion >= ProtocolInfo.ScreenVersion && ConnectionState == ConnectionState.Connected;
 
     /// <summary>The collector can restart min/max (protocol 3).</summary>
     public bool SupportsMinMaxReset => CollectorProtocolVersion >= ProtocolInfo.LongHistoryVersion && ConnectionState == ConnectionState.Connected;
@@ -265,10 +272,15 @@ public sealed partial class SensorStore : ObservableObject
 
     partial void OnCollectorProtocolVersionChanged(int value) => NotifyCollectorFeatures();
 
-    partial void OnConnectionStateChanged(ConnectionState value) => OnPropertyChanged(nameof(SupportsMinMaxReset));
+    partial void OnConnectionStateChanged(ConnectionState value)
+    {
+        OnPropertyChanged(nameof(SupportsMinMaxReset));
+        OnPropertyChanged(nameof(SupportsScreens));
+    }
 
     private void NotifyCollectorFeatures()
     {
+        OnPropertyChanged(nameof(SupportsScreens));
         OnPropertyChanged(nameof(SupportsLongHistory));
         OnPropertyChanged(nameof(SupportsMinMaxReset));
         OnPropertyChanged(nameof(MinMaxSinceText));
@@ -413,6 +425,11 @@ public sealed partial class SensorStore : ObservableObject
         _calcItems = []; // Sensors was cleared
         BuildCalculated();
         HardwareCount = catalog.Hardware.Count;
+        Screens = [.. catalog.Hardware
+            .Where(h => h.Screen is { IsValid: true })
+            .GroupBy(h => h.Id, StringComparer.Ordinal)
+            .Select(g => g.First())
+            .Select(h => new ScreenTarget(h.Id, h.Name, h.Screen!.Width, h.Screen.Height))];
         CatalogApplied?.Invoke();
         _ = BackfillHistoryAsync(catalog.Version, items);
     }
@@ -450,3 +467,7 @@ public sealed partial class SensorStore : ObservableObject
         }
     }
 }
+
+/// <summary>A screen the collector reported on a piece of hardware (a cooler's LCD), in pixels.</summary>
+/// <param name="HardwareId">Catalog hardware id, e.g. <c>lianli:/LianLi/0</c>.</param>
+public sealed record ScreenTarget(string HardwareId, string Name, int Width, int Height);

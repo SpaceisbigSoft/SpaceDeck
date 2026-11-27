@@ -1,3 +1,5 @@
+using System.IO.Pipes;
+using System.Runtime.InteropServices;
 using SpaceDeck.Integrations.FanControl;
 
 namespace SpaceDeck.Collector.Plugins;
@@ -52,4 +54,40 @@ public sealed class FanControlClientVerifier : IPluginClientVerifier
         var name = Path.GetFileName(imagePath);
         return name.Equals(AppExeName, StringComparison.OrdinalIgnoreCase) || name.Equals(ServiceExeName, StringComparison.OrdinalIgnoreCase);
     }
+}
+
+/// <summary>
+/// The client check of the collector's FanControl pipes (plugin pipe and screen pipe): which process connected, then
+/// <see cref="IPluginClientVerifier"/> on its image. Run before a byte is read from or written to the client.
+/// </summary>
+internal static class PluginPipeClient
+{
+    /// <summary>Null if the client process is accepted; otherwise why not.</summary>
+    public static string? Check(NamedPipeServerStream pipe, IPluginClientVerifier verifier, out int processId)
+    {
+        processId = 0;
+        if (!GetNamedPipeClientProcessId(pipe.SafePipeHandle, out var pid))
+        {
+            return "couldn't tell which process connected";
+        }
+
+        processId = (int)pid;
+        return verifier.Check(processId, FanControlLocator.TryGetImagePath(processId));
+    }
+
+    /// <summary>
+    /// The client's program name (its image's file name without the extension, e.g. <c>spacedeck-cli</c>), or null if
+    /// Windows can't tell which process connected or open it. For the screen status line only, never for a decision.
+    /// </summary>
+    public static string? ProgramNameOf(NamedPipeServerStream pipe)
+    {
+        ArgumentNullException.ThrowIfNull(pipe);
+        return GetNamedPipeClientProcessId(pipe.SafePipeHandle, out var pid) && FanControlLocator.TryGetImagePath((int)pid) is { } path
+            ? Path.GetFileNameWithoutExtension(path)
+            : null;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetNamedPipeClientProcessId(SafeHandle pipe, out uint clientProcessId);
 }

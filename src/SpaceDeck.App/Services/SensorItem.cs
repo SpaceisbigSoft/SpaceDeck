@@ -112,6 +112,12 @@ public sealed class SensorItem : ObservableObject
 
     public SensorKind Kind { get; }
 
+    /// <summary>
+    /// For the sparkline's MinimumSpanFraction: fan and pump speeds wobble by a tach step or two
+    /// (3,000 ↔ 3,060 rpm), which a tightly fitted sparkline draws as drops across the whole box.
+    /// </summary>
+    public double SparklineMinimumSpan => Kind == SensorKind.Fan ? 0.1 : 0;
+
     public double? Nominal { get; }
 
     public bool HasNominal => Nominal.HasValue;

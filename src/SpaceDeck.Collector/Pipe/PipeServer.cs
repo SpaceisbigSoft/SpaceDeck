@@ -2,6 +2,7 @@ using System.IO.Pipes;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Microsoft.Extensions.Options;
+using SpaceDeck.Collector.Plugins;
 using SpaceDeck.Collector.Polling;
 
 namespace SpaceDeck.Collector.Pipe;
@@ -23,14 +24,17 @@ public sealed partial class PipeServer : BackgroundService
     private readonly SensorHub _hub;
     private readonly ILogger<PipeServer> _logger;
     private readonly string _pipeName;
+    private readonly ScreenRelay? _screens;
     private int _nextSessionId;
 
-    public PipeServer(SensorHub hub, IOptions<CollectorOptions> options, ILogger<PipeServer> logger)
+    /// <param name="screens">Takes cooler screen frames from clients; null (a replay) ignores them.</param>
+    public PipeServer(SensorHub hub, IOptions<CollectorOptions> options, ILogger<PipeServer> logger, ScreenRelay? screens = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         _hub = hub;
         _logger = logger;
         _pipeName = options.Value.PipeName;
+        _screens = screens;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -102,7 +106,7 @@ public sealed partial class PipeServer : BackgroundService
 
             full = false;
             var id = Interlocked.Increment(ref _nextSessionId);
-            var session = new ClientSession(id, server, _hub, _logger);
+            var session = new ClientSession(id, server, _hub, _logger, _screens);
             sessions.Add(session.RunAsync(stoppingToken));
         }
 
