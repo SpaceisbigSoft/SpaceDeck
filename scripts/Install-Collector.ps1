@@ -4,9 +4,14 @@
     Publishes the SpaceDeck collector and installs (or updates) it as a Windows Service.
 
 .DESCRIPTION
-    Builds src/SpaceDeck.Collector, copies it to "C:\Program Files\SpaceDeck\Collector",
+    Builds src/SpaceDeck.Collector and src/SpaceDeck.Cli, publishes both to "C:\Program Files\SpaceDeck\Collector",
     and registers the "SpaceDeckCollector" service (automatic start, LocalSystem).
     Safe to re-run after code changes: it stops the service, republishes, and starts it again.
+
+    The publish is self-contained (the folder carries its own .NET runtime), the same way the MSI installs it, so the
+    script can update a folder the MSI installed. A framework-dependent publish into such a folder left the MSI's
+    runtime files beside it, and the service then failed to start ("No frameworks were found"). When SpaceDeck was
+    installed with the MSI, the script says so: running the MSI again (repair or upgrade) puts its own files back.
 
     The service runs as SYSTEM, so the script also makes sure normal users can't change its files:
     the install folder and %ProgramData%\SpaceDeck (settings, logs, history) get an ACL where only
@@ -18,13 +23,18 @@
 #>
 param(
     [string]$Configuration = "Release",
-    [string]$InstallDir = (Join-Path $env:ProgramFiles "SpaceDeck\Collector")
+    [string]$InstallDir = (Join-Path $env:ProgramFiles "SpaceDeck\Collector"),
+    [string]$Runtime = "win-x64"
 )
 
 $ErrorActionPreference = "Stop"
 $serviceName = "SpaceDeckCollector"
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$project = Join-Path $repoRoot "src\SpaceDeck.Collector\SpaceDeck.Collector.csproj"
+# The CLI shares the collector's folder, as in the MSI (scripts\Publish-Release.ps1): both use the same libraries.
+$projects = @(
+    (Join-Path $repoRoot "src\SpaceDeck.Collector\SpaceDeck.Collector.csproj"),
+    (Join-Path $repoRoot "src\SpaceDeck.Cli\SpaceDeck.Cli.csproj")
+)
 $InstallDir = [System.IO.Path]::GetFullPath($InstallDir)
 $exe = Join-Path $InstallDir "SpaceDeck.Collector.exe"
 $dataDir = Join-Path $env:ProgramData "SpaceDeck"
@@ -142,6 +152,22 @@ function Set-AdminOnlyAcl([string]$Path, [switch]$AdoptContents, [switch]$SetAsi
     }
 }
 
+# An MSI install registers SpaceDeck under Uninstall (both registry views checked; the MSI is 64-bit).
+$msiInstall = @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+                "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*") |
+    ForEach-Object { Get-ItemProperty -Path $_ -ErrorAction SilentlyContinue } |
+    Where-Object { $_.DisplayName -eq "SpaceDeck" -and $_.WindowsInstaller -eq 1 } |
+    Select-Object -First 1
+if ($msiInstall) {
+    Write-Host ("SpaceDeck $($msiInstall.DisplayVersion) is installed with the MSI. This replaces its collector files with " +
+        "your build; a repair or upgrade of the MSI puts the release files back.")
+}
+
+# Checked before the service stops, so a refusal leaves it running. Its files are replaced below.
+$cliRunning = Get-Process -Name "spacedeck-cli" -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -and $_.Path.StartsWith($InstallDir, [StringComparison]::OrdinalIgnoreCase) }
+if ($cliRunning) { throw "spacedeck-cli is running from $InstallDir (pid $($cliRunning[0].Id)): close it, then run this script again." }
+
 $existing = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
 if ($existing -and $existing.Status -ne "Stopped") {
     Write-Host "Stopping $serviceName..."
@@ -182,9 +208,15 @@ if (-not $InstallDir.StartsWith($programFiles, [StringComparison]::OrdinalIgnore
         "can't rename or replace any folder above it, or they could swap in their own program.")
 }
 
-Write-Host "Publishing collector ($Configuration) to $InstallDir..."
-dotnet publish $project -c $Configuration -o $InstallDir --nologo
-if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
+# Self-contained like the release (scripts\Publish-Release.ps1), so the folder never mixes a framework-dependent build
+# with the runtime files an MSI install (or an earlier run) left in it.
+$publishArgs = @("-c", $Configuration, "-r", $Runtime, "--self-contained", "true",
+    "-p:DebugType=embedded", "-p:SatelliteResourceLanguages=en", "--nologo", "-o", $InstallDir)
+foreach ($project in $projects) {
+    Write-Host "Publishing $([System.IO.Path]::GetFileNameWithoutExtension($project)) ($Configuration, self-contained) to $InstallDir..."
+    dotnet publish $project @publishArgs
+    if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed for $project." }
+}
 
 if (-not $InstallDir.StartsWith($programFiles, [StringComparison]::OrdinalIgnoreCase)) {
     # Program Files is already admin-only; anywhere else, lock the folder down ourselves.
@@ -222,4 +254,4 @@ Start-Service -Name $serviceName
 Get-Service -Name $serviceName | Format-Table -AutoSize Name, Status, StartType
 
 Write-Host "Logs: $dataDir\logs"
-Write-Host "Test: dotnet run --project src\SpaceDeck.Cli -- connect"
+Write-Host "Test: & `"$(Join-Path $InstallDir "spacedeck-cli.exe")`" connect"
