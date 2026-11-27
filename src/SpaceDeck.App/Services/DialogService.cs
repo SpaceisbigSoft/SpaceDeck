@@ -4,6 +4,7 @@ using Microsoft.Win32;
 using SpaceDeck.App.ViewModels;
 using SpaceDeck.App.Views;
 using SpaceDeck.Core.Dashboards;
+using SpaceDeck.Core.Screens;
 
 namespace SpaceDeck.App.Services;
 
@@ -72,7 +73,7 @@ public sealed class DialogService
     /// <summary>Add (<paramref name="existing"/> null) or edit a tile. Returns the new spec, or null if cancelled.</summary>
     public TileSpec? EditTile(TileSpec? existing)
     {
-        var window = new TileEditorWindow(new TileEditorViewModel(_store, existing)) { Owner = Owner };
+        var window = new TileEditorWindow(new TileEditorViewModel(_store, existing, () => PickOpenFile("Picture or GIF", MediaFiles.PictureFilter))) { Owner = Owner };
         return window.ShowDialog() == true ? window.Result : null;
     }
 
@@ -169,6 +170,13 @@ public sealed class DialogService
     {
         var dialog = new OpenFileDialog { Title = title, Filter = filter };
         return ShowFileDialog(dialog) ? dialog.FileName : null;
+    }
+
+    /// <summary>Asks for a folder. Null if cancelled.</summary>
+    public string? PickFolder(string title)
+    {
+        var dialog = new OpenFolderDialog { Title = title };
+        return ShowFileDialog(dialog) ? dialog.FolderName : null;
     }
 
     private static bool ShowFileDialog(CommonDialog dialog) =>

@@ -454,6 +454,17 @@
       </Border>
     </DataTemplate>
 
+    <!-- Picture or GIF, edge to edge (no card), with the title (if any) on top -->
+    <DataTemplate x:Key="Tile.Image">
+      <Grid ClipToBounds="True">
+        <c:AnimatedImage MediaPath="{Binding MediaPath}" Fit="{Binding MediaFit}" Opacity="{Binding MediaOpacity}" />
+        <TextBlock Text="{Binding Title}" Style="{StaticResource TileTitle}" VerticalAlignment="Top" Margin="10,8,10,0" />
+        <TextBlock Text="No picture chosen: open the tile's settings to choose one." Style="{StaticResource Caption}"
+                   TextWrapping="Wrap" TextTrimming="None" Margin="10" VerticalAlignment="Center" HorizontalAlignment="Center"
+                   Visibility="{Binding HasMedia, Converter={StaticResource VisibleWhen}, ConverterParameter=invert}" />
+      </Grid>
+    </DataTemplate>
+
     <!-- Sensor missing (hardware removed or renamed) -->
     <DataTemplate x:Key="Tile.Missing">
       <Border Style="{StaticResource TileFrame}" BorderBrush="{DynamicResource Skin.Rule}">
@@ -502,6 +513,11 @@
       <RowDefinition Height="*" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
+
+    <!-- An ordinary dashboard's background picture, behind everything (a screen layout's is inside its frame, below). -->
+    <c:AnimatedImage x:Name="PageBackground" Grid.RowSpan="2" IsHitTestVisible="False" Visibility="Collapsed"
+                     MediaPath="{Binding BackgroundPath}" Fit="{Binding BackgroundFit}" Opacity="{Binding BackgroundOpacity}" />
+
     <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
       <!--
         Right margin: Fluent scrollbars overlay content; keep tiles clear of it (unscaled, so the sidebar's width math holds).
@@ -510,6 +526,31 @@
       -->
       <Border x:Name="ScaleHost" Margin="0,6,16,12">
         <Grid x:Name="Surface">
+          <!--
+            Screen layout (a cooler screen's dashboard): its background fills the screen's area; while editing, a frame
+            shows that area (what the cooler gets), with the last frame sent beside it, upright. Placed by code
+            (UpdateScreenLayer) from the grid panel's own cell bounds, so it follows the grid's pitch.
+          -->
+          <Canvas x:Name="ScreenLayer" IsHitTestVisible="False" HorizontalAlignment="Left" VerticalAlignment="Top">
+            <c:AnimatedImage x:Name="ScreenBackground" Visibility="Collapsed"
+                             MediaPath="{Binding BackgroundPath}" Fit="{Binding BackgroundFit}" Opacity="{Binding BackgroundOpacity}" />
+            <Rectangle x:Name="ScreenFrame" Visibility="Collapsed" Stroke="{DynamicResource Skin.Accent}" StrokeThickness="1.5" />
+            <TextBlock x:Name="ScreenCaption" Visibility="Collapsed" Text="{Binding ScreenCaption}" Style="{StaticResource Caption}" />
+            <StackPanel x:Name="ScreenPreviewPanel" Visibility="Collapsed">
+              <Border x:Name="ScreenPreviewBox" BorderBrush="{DynamicResource Skin.TextFaint}" BorderThickness="1"
+                      Background="{DynamicResource Skin.Background}">
+                <Grid>
+                  <Image Source="{Binding ScreenPreview}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+                         AutomationProperties.Name="Cooler screen preview" />
+                  <TextBlock Text="The live preview shows here while a cooler screen shows this dashboard." Style="{StaticResource Caption}"
+                             TextWrapping="Wrap" TextTrimming="None" TextAlignment="Center" VerticalAlignment="Center" Margin="14"
+                             Visibility="{Binding ScreenPreview, Converter={StaticResource VisibleWhen}, ConverterParameter=invert}" />
+                </Grid>
+              </Border>
+              <TextBlock Text="What the cooler shows (upright)" Style="{StaticResource Caption}" Margin="0,6,0,0" />
+            </StackPanel>
+          </Canvas>
+
           <!-- Drop target while dragging (under the tiles, which are transparent) -->
           <Canvas x:Name="GhostLayer" IsHitTestVisible="False">
             <Rectangle x:Name="Ghost" Visibility="Collapsed" Fill="{DynamicResource Skin.Hover}"

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -57,7 +58,18 @@ public partial class DashboardCanvas : UserControl
     public static readonly DependencyProperty StackedProperty = DependencyProperty.Register(
         nameof(Stacked), typeof(bool), typeof(DashboardCanvas), new PropertyMetadata(false, (d, _) => ((DashboardCanvas)d).ApplyEditMode()));
 
+    /// <summary>
+    /// Shows the dashboard's background picture (on by default). Off in the cooler screen renderer, which draws the
+    /// background across the whole screen itself.
+    /// </summary>
+    public static readonly DependencyProperty ShowsBackgroundProperty = DependencyProperty.Register(
+        nameof(ShowsBackground), typeof(bool), typeof(DashboardCanvas), new PropertyMetadata(true, (d, _) => ((DashboardCanvas)d).UpdateScreenLayer()));
+
     private const int EditExtraRows = 6;
+
+    /// <summary>Space between the square editor's frame and the preview beside it, and the preview's largest side.</summary>
+    private const double PreviewGap = 28;
+    private const double PreviewMaxSide = 300;
     private const double AutoScrollMargin = 36;
     private const double AutoScrollStep = 14;
 
@@ -77,6 +89,8 @@ public partial class DashboardCanvas : UserControl
     private Point _start;
     private CellRect _origin;
     private CellRect _target;
+    private int _dragColumns = GridLayout.Columns;
+    private DashboardDocumentViewModel? _watched;
 
     public DashboardCanvas()
     {
@@ -88,7 +102,11 @@ public partial class DashboardCanvas : UserControl
         Surface.AddHandler(RequestBringIntoViewEvent, new RequestBringIntoViewEventHandler((_, e) => e.Handled = true));
 
         // A different dashboard starts at the top.
-        DataContextChanged += (_, _) => Scroller.ScrollToTop();
+        DataContextChanged += (_, _) =>
+        {
+            Scroller.ScrollToTop();
+            Watch(DataContext as DashboardDocumentViewModel);
+        };
         ContextMenuOpening += OnContextMenuOpening;
 
         // Fit to height: re-fit when the room changes (window resize, monitor/DPI/taskbar, global UI size) or the
@@ -108,9 +126,19 @@ public partial class DashboardCanvas : UserControl
             {
                 ScheduleFit();
             }
+
+            UpdateScreenLayer();
         };
-        Loaded += (_, _) => ScheduleFit();
-        Unloaded += (_, _) => _fitTimer.Stop();
+        Loaded += (_, _) =>
+        {
+            ScheduleFit();
+            Watch(DataContext as DashboardDocumentViewModel);
+        };
+        Unloaded += (_, _) =>
+        {
+            _fitTimer.Stop();
+            Watch(null);
+        };
     }
 
     private enum DragKind
@@ -137,6 +165,12 @@ public partial class DashboardCanvas : UserControl
     {
         get => (bool)GetValue(StackedProperty);
         set => SetValue(StackedProperty, value);
+    }
+
+    public bool ShowsBackground
+    {
+        get => (bool)GetValue(ShowsBackgroundProperty);
+        set => SetValue(ShowsBackgroundProperty, value);
     }
 
     /// <summary>True when tiles show their edit chrome and can be dragged.</summary>
@@ -265,7 +299,105 @@ public partial class DashboardCanvas : UserControl
     private void Panel_Loaded(object sender, RoutedEventArgs e)
     {
         _panel = (DashboardGridPanel)sender;
+        _panel.SizeChanged -= OnPanelSizeChanged;
+        _panel.SizeChanged += OnPanelSizeChanged;
         ApplyEditMode();
+    }
+
+    private void OnPanelSizeChanged(object sender, SizeChangedEventArgs e) => UpdateScreenLayer();
+
+    /// <summary>Follows the shown dashboard's background and screen layout settings.</summary>
+    private void Watch(DashboardDocumentViewModel? dashboard)
+    {
+        if (!ReferenceEquals(_watched, dashboard))
+        {
+            if (_watched is not null)
+            {
+                _watched.PropertyChanged -= OnDashboardPropertyChanged;
+            }
+
+            _watched = dashboard;
+            if (dashboard is not null)
+            {
+                dashboard.PropertyChanged += OnDashboardPropertyChanged;
+            }
+        }
+
+        UpdateScreenLayer();
+    }
+
+    private void OnDashboardPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DashboardDocumentViewModel.IsScreenLayout) or nameof(DashboardDocumentViewModel.ScreenGrid)
+            or nameof(DashboardDocumentViewModel.HasBackground))
+        {
+            UpdateScreenLayer();
+        }
+    }
+
+    /// <summary>
+    /// The background (behind the page, or in a screen layout's area) and, while editing a screen layout, the frame of
+    /// the screen's area with its caption and the live preview beside it.
+    /// </summary>
+    private void UpdateScreenLayer()
+    {
+        var dashboard = DataContext as DashboardDocumentViewModel;
+        var grid = dashboard?.ScreenGrid;
+        var background = ShowsBackground && dashboard?.HasBackground == true;
+        PageBackground.Visibility = background && grid is null ? Visibility.Visible : Visibility.Collapsed;
+
+        if (grid is not { } area || _panel is null || (Stacked && !EditMode))
+        {
+            ScreenBackground.Visibility = Visibility.Collapsed;
+            SetFrameVisible(false);
+            ScreenLayer.MinHeight = 0;
+            return;
+        }
+
+        var bounds = _panel.CellBounds(area.Cells);
+        var topLeft = _panel.TranslatePoint(bounds.TopLeft, ScreenLayer);
+        Place(ScreenBackground, topLeft.X, topLeft.Y, bounds.Width, bounds.Height);
+        ScreenBackground.Visibility = background ? Visibility.Visible : Visibility.Collapsed;
+
+        SetFrameVisible(EditMode);
+        if (!EditMode)
+        {
+            ScreenLayer.MinHeight = 0;
+            return;
+        }
+
+        // The frame sits just outside the area, so it doesn't cover the tiles' edges.
+        Place(ScreenFrame, topLeft.X - 3, topLeft.Y - 3, bounds.Width + 6, bounds.Height + 6);
+        Canvas.SetLeft(ScreenCaption, topLeft.X);
+        Canvas.SetTop(ScreenCaption, topLeft.Y + bounds.Height + 8);
+        ScreenCaption.MaxWidth = Math.Max(120, bounds.Width);
+
+        var side = Math.Min(PreviewMaxSide, bounds.Height);
+        var screen = dashboard?.EffectiveScreen;
+        var aspect = screen is { Width: > 0, Height: > 0 } ? screen.Width / (double)screen.Height : 1;
+        ScreenPreviewBox.Width = aspect >= 1 ? side : side * aspect;
+        ScreenPreviewBox.Height = aspect >= 1 ? side / aspect : side;
+        Canvas.SetLeft(ScreenPreviewPanel, topLeft.X + bounds.Width + PreviewGap);
+        Canvas.SetTop(ScreenPreviewPanel, topLeft.Y);
+
+        // Room below the frame for its caption, even while the tiles end higher up.
+        ScreenLayer.MinHeight = topLeft.Y + bounds.Height + 32;
+    }
+
+    private void SetFrameVisible(bool visible)
+    {
+        var visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        ScreenFrame.Visibility = visibility;
+        ScreenCaption.Visibility = visibility;
+        ScreenPreviewPanel.Visibility = visibility;
+    }
+
+    private static void Place(FrameworkElement element, double left, double top, double width, double height)
+    {
+        Canvas.SetLeft(element, left);
+        Canvas.SetTop(element, top);
+        element.Width = Math.Max(0, width);
+        element.Height = Math.Max(0, height);
     }
 
     private void ApplyEditMode()
@@ -282,6 +414,8 @@ public partial class DashboardCanvas : UserControl
             _panel.ExtraRows = EditMode ? EditExtraRows : 0;
             _panel.Stacked = Stacked && !EditMode;
         }
+
+        UpdateScreenLayer();
     }
 
     private void Move_MouseDown(object sender, MouseButtonEventArgs e)
@@ -314,6 +448,9 @@ public partial class DashboardCanvas : UserControl
         _origin = tile.Cells;
         _target = _origin;
         _captured = element;
+
+        // On a screen layout, a tile inside the frame stays inside its columns (one already outside moves on the whole grid).
+        _dragColumns = Document?.ScreenGrid is { } screen && _origin.Right <= screen.Columns ? screen.Columns : GridLayout.Columns;
         if (_container is not null)
         {
             Panel.SetZIndex(_container, 10);
@@ -335,7 +472,7 @@ public partial class DashboardCanvas : UserControl
         var position = e.GetPosition(_panel);
         var dx = position.X - _start.X;
         var dy = position.Y - _start.Y;
-        var columns = GridLayout.Columns;
+        var columns = _dragColumns;
         var colSteps = (int)Math.Round(dx / _panel.ColumnPitch);
         var rowSteps = (int)Math.Round(dy / DashboardGridPanel.RowPitch);
 

@@ -26,11 +26,15 @@ public sealed partial class TileViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _rowSpan;
 
-    public TileViewModel(TileSpec spec, SensorStore store, FanProfileService fanProfiles)
+    private readonly bool _fillNumbers;
+
+    /// <param name="fillNumbers">On a cooler screen layout: the main number is as large as the tile allows.</param>
+    public TileViewModel(TileSpec spec, SensorStore store, FanProfileService fanProfiles, bool fillNumbers = false)
     {
         ArgumentNullException.ThrowIfNull(spec);
         ArgumentNullException.ThrowIfNull(store);
         Spec = spec;
+        _fillNumbers = fillNumbers;
         Col = spec.Col;
         Row = spec.Row;
         ColSpan = spec.ColSpan;
@@ -157,6 +161,7 @@ public sealed partial class TileViewModel : ObservableObject, IDisposable
         WidgetType.Uptime => "Windows uptime",
         WidgetType.Throughput => "Network & disk",
         WidgetType.Text => "",
+        WidgetType.Image => "",
         WidgetType.Section => Section?.HardwareName ?? Sections.Find(Spec.Section)?.Title ?? "Section", // "Intel Core i9-14900K" beats "CPU"
         _ => Reading?.Name ?? "Sensor",
     };
@@ -196,8 +201,17 @@ public sealed partial class TileViewModel : ObservableObject, IDisposable
 
     public bool ShowMinMax => Spec.ShowMinMax;
 
-    /// <summary>Size of the main number, scaled to the tile's height.</summary>
-    public double HeroSize => RowSpan switch
+    /// <summary>A picture tile's file (SpaceDeck's own copy).</summary>
+    public string? MediaPath => Spec.Media;
+
+    public bool HasMedia => !string.IsNullOrEmpty(Spec.Media);
+
+    public Core.Screens.ImageFit MediaFit => Spec.Fit ?? Core.Screens.ImageFit.Fill;
+
+    public double MediaOpacity => Spec.Opacity ?? 1;
+
+    /// <summary>Size of the main number, scaled to the tile's height (on a cooler screen layout: filling the tile).</summary>
+    public double HeroSize => _fillNumbers ? ScreenLayoutGrid.FillNumberSize(ColSpan, RowSpan) : RowSpan switch
     {
         >= 5 => SkinManager.Double("Skin.Size.Hero", 52) * 1.25,
         4 => SkinManager.Double("Skin.Size.Hero", 52),
@@ -242,6 +256,7 @@ public sealed partial class TileViewModel : ObservableObject, IDisposable
 
     partial void OnColSpanChanged(int value)
     {
+        OnPropertyChanged(nameof(HeroSize));
         OnPropertyChanged(nameof(GaugeNumberSize));
         OnPropertyChanged(nameof(CompactNumberSize));
     }

@@ -210,6 +210,20 @@
           </ItemsControl>
         </StackPanel>
 
+        <StackPanel Visibility="{Binding IsImage, Converter={StaticResource VisibleWhen}}">
+          <TextBlock Text="Picture or GIF" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Choose…" Command="{Binding ChooseMediaCommand}" Padding="12,4" Margin="8,0,0,0" />
+            <TextBlock Text="{Binding MediaText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding MediaPath}" />
+          </DockPanel>
+          <TextBlock Text="Fit" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <ComboBox ItemsSource="{Binding MediaFits}" SelectedItem="{Binding MediaFit}" DisplayMemberPath="Label" AutomationProperties.Name="Picture fit" />
+          <TextBlock Text="Opacity" Style="{StaticResource Caption}" Margin="0,12,0,4" />
+          <ComboBox ItemsSource="{Binding Opacities}" SelectedItem="{Binding MediaOpacity}" DisplayMemberPath="Label" AutomationProperties.Name="Picture opacity" />
+          <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0" TextWrapping="Wrap" TextTrimming="None" Foreground="{DynamicResource Skin.TextFaint}"
+                     Text="SpaceDeck keeps its own copy, so moving the original changes nothing. Tiles don't overlap: for a picture behind all tiles, use the dashboard's … menu → Background picture." />
+        </StackPanel>
+
         <StackPanel Visibility="{Binding HasMetric, Converter={StaticResource VisibleWhen}}">
           <TextBlock Text="Show" Style="{StaticResource Caption}" Margin="0,12,0,4" />
           <ComboBox ItemsSource="{Binding Metrics}" SelectedItem="{Binding Metric}" DisplayMemberPath="Label" AutomationProperties.Name="Core map shows" />

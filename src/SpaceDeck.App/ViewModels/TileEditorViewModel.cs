@@ -1,13 +1,16 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SpaceDeck.App.Services;
+using SpaceDeck.App.Services.Media;
 using SpaceDeck.Core.Dashboards;
 using SpaceDeck.Core.Formatting;
 using SpaceDeck.Core.Model;
+using SpaceDeck.Core.Screens;
 
 namespace SpaceDeck.App.ViewModels;
 
@@ -58,7 +61,7 @@ public sealed partial class TileEditorViewModel : ObservableObject
     private readonly Dictionary<string, SensorPickRow> _rows;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsMultiSensor), nameof(NeedsSensors), nameof(IsLabel), nameof(HasTimeWindow), nameof(HasScale), nameof(HasNumberSettings), nameof(SensorHint), nameof(HasTemplate), nameof(HasMetric), nameof(HasSection), nameof(HasFanMode))]
+    [NotifyPropertyChangedFor(nameof(IsMultiSensor), nameof(NeedsSensors), nameof(IsLabel), nameof(HasTimeWindow), nameof(HasScale), nameof(HasNumberSettings), nameof(SensorHint), nameof(HasTemplate), nameof(HasMetric), nameof(HasSection), nameof(HasFanMode), nameof(IsImage))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     private WidgetChoice _widget = null!;
 
@@ -125,6 +128,19 @@ public sealed partial class TileEditorViewModel : ObservableObject
     [ObservableProperty]
     private Option<string> _fanMode = FanDisplay.Choices[0];
 
+    /// <summary>A picture tile's file (SpaceDeck's own copy), or null.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MediaText))]
+    private string? _mediaPath;
+
+    [ObservableProperty]
+    private Option<ImageFit> _mediaFit = null!;
+
+    [ObservableProperty]
+    private Option<double> _mediaOpacity = null!;
+
+    private readonly Func<string?>? _pickPicture;
+
     public IReadOnlyList<Option<string>> FanModes => FanDisplay.Choices;
 
     /// <summary>Sections with fan rows (GPU, motherboard) offer RPM / percent / bar.</summary>
@@ -136,11 +152,15 @@ public sealed partial class TileEditorViewModel : ObservableObject
     /// <summary>Rows switched off (hidden), kept while options change.</summary>
     private readonly HashSet<string> _hiddenEdits = new(StringComparer.Ordinal);
 
-    public TileEditorViewModel(SensorStore store, TileSpec? existing)
+    /// <param name="pickPicture">Asks for a picture or GIF file (an open-file dialog); null offers none.</param>
+    public TileEditorViewModel(SensorStore store, TileSpec? existing, Func<string?>? pickPicture = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         _store = store;
         _existing = existing;
+        _pickPicture = pickPicture;
+        MediaFit = MediaFits[0];
+        MediaOpacity = Opacities[0];
 
         _rows = store.Sensors.GroupBy(s => s.Id).ToDictionary(g => g.Key, g => new SensorPickRow(g.First()));
         Rows = [.. store.Sensors.Select(s => _rows[s.Id])];
@@ -187,7 +207,43 @@ public sealed partial class TileEditorViewModel : ObservableObject
         new(WidgetType.Clock, "Clock", "Time and date."),
         new(WidgetType.Uptime, "Uptime", "How long Windows has been running."),
         new(WidgetType.Section, "Hardware section", "CPU, GPU, RAM, drives… as aligned rows of readings, sidebar style (per-core clocks and temperatures)."),
+        new(WidgetType.Image, "Picture or GIF", "A picture or an animated GIF, filling the tile or fitted inside it. Animates on a cooler screen too."),
     ];
+
+    public bool IsImage => Widget.Type == WidgetType.Image;
+
+    public string MediaText => MediaPath is null ? "No picture chosen" : Path.GetFileName(MediaPath);
+
+    public IReadOnlyList<Option<ImageFit>> MediaFits { get; } =
+        [new("Fill the tile (crop the edges)", ImageFit.Fill), new("Fit inside the tile", ImageFit.Fit)];
+
+    public IReadOnlyList<Option<double>> Opacities { get; } =
+        [new("100 %", 1.0), new("80 %", 0.8), new("60 %", 0.6), new("40 %", 0.4), new("20 %", 0.2)];
+
+    [RelayCommand]
+    private void ChooseMedia()
+    {
+        if (_pickPicture?.Invoke() is not { } path)
+        {
+            return;
+        }
+
+        if (!MediaFiles.IsImage(path))
+        {
+            Error = "Choose a picture (PNG, JPEG, BMP, TIFF) or a GIF.";
+            return;
+        }
+
+        try
+        {
+            MediaPath = MediaLibrary.Import(path);
+            Error = null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            Error = $"Couldn't use that picture: {ex.Message}";
+        }
+    }
 
     public bool HasSection => Widget.Type == WidgetType.Section;
 
@@ -425,6 +481,9 @@ public sealed partial class TileEditorViewModel : ObservableObject
             Critical = ToCelsius(critical),
             Accent = Accent.Value,
             ShowMinMax = ShowMinMax,
+            Media = IsImage ? MediaPath : null,
+            Fit = IsImage ? MediaFit.Value : null,
+            Opacity = IsImage && MediaOpacity.Value < 1 ? MediaOpacity.Value : null,
         };
 
         if (NeedsSensors)
@@ -471,6 +530,9 @@ public sealed partial class TileEditorViewModel : ObservableObject
         Accent = AccentOptions.FirstOrDefault(a => a.Value == spec.Accent) ?? AccentOptions[0];
         ShowMinMax = spec.ShowMinMax;
         Metric = Metrics.FirstOrDefault(m => m.Value == spec.Metric) ?? Metrics[0];
+        MediaPath = spec.Media;
+        MediaFit = MediaFits.FirstOrDefault(f => f.Value == (spec.Fit ?? ImageFit.Fill)) ?? MediaFits[0];
+        MediaOpacity = Opacities.MinBy(o => Math.Abs(o.Value - (spec.Opacity ?? 1))) ?? Opacities[0];
         if (spec.Type == WidgetType.Section)
         {
             foreach (var key in spec.HiddenRows ?? Enumerable.Empty<string>())

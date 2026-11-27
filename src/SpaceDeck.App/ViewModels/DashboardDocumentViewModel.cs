@@ -1,9 +1,13 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
+using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SpaceDeck.App.Services;
+using SpaceDeck.App.Services.Media;
 using SpaceDeck.Core.Dashboards;
+using SpaceDeck.Core.Screens;
 
 namespace SpaceDeck.App.ViewModels;
 
@@ -15,8 +19,20 @@ public sealed partial class DashboardDocumentViewModel : ObservableObject, IDisp
 {
     private readonly DashboardServices _services;
 
+    /// <summary>Opacity of a dimmed background (Dashboard menu → Dim the background).</summary>
+    private const double DimmedOpacity = 0.45;
+
     [ObservableProperty]
     private bool _isEditing;
+
+    /// <summary>
+    /// The last frame a cooler screen drew from this dashboard, upright: the square editor's live preview. Set by the
+    /// cooler screen while it shows this dashboard.
+    /// </summary>
+    [ObservableProperty]
+    private BitmapSource? _screenPreview;
+
+    private DashboardScreen? _screenUse;
 
     public DashboardDocumentViewModel(DashboardDocument document, DashboardServices services)
     {
@@ -49,6 +65,186 @@ public sealed partial class DashboardDocumentViewModel : ObservableObject, IDisp
     public ObservableCollection<TileViewModel> Tiles { get; } = [];
 
     public bool IsEmpty => Tiles.Count == 0;
+
+    /// <summary>
+    /// The screen of a cooler that shows this dashboard, set by the cooler screen while it does when the layout fits
+    /// that screen's area (a 6-column layout on the GA II LCD): it is then edited in the square frame and drawn as that
+    /// area, as if marked (<see cref="IsMarkedScreenLayout"/>), without changing the file. Null otherwise.
+    /// </summary>
+    public DashboardScreen? ScreenUse
+    {
+        get => _screenUse;
+        set
+        {
+            if (value?.Width == _screenUse?.Width && value?.Height == _screenUse?.Height)
+            {
+                return;
+            }
+
+            var wasLayout = IsScreenLayout;
+            _screenUse = value;
+            OnScreenChanged(rebuild: wasLayout != IsScreenLayout);
+        }
+    }
+
+    /// <summary>The screen this layout is for: its own (<see cref="DashboardDocument.Screen"/>) or the cooler's using it.</summary>
+    public DashboardScreen? EffectiveScreen => Document.Screen ?? _screenUse;
+
+    /// <summary>Edited in a frame of the screen's shape and drawn on the cooler as exactly that area.</summary>
+    public bool IsScreenLayout => EffectiveScreen is not null;
+
+    /// <summary>The screen layout's area on the grid, or null for an ordinary dashboard.</summary>
+    public ScreenLayoutGrid? ScreenGrid => EffectiveScreen is { } screen ? ScreenLayoutGrid.For(screen) : null;
+
+    /// <summary>Under the square editor's frame: "Cooler screen · 480 × 480 · tiles inside the frame are shown".</summary>
+    public string ScreenCaption => EffectiveScreen is { } screen
+        ? string.Create(CultureInfo.CurrentCulture, $"Cooler screen · {screen.Width} × {screen.Height} · only tiles inside the frame are shown")
+        : "";
+
+    /// <summary>Dashboard menu → "Square cooler screen layout": marks (or unmarks) this dashboard as a screen layout.</summary>
+    public bool IsMarkedScreenLayout
+    {
+        get => Document.Screen is not null;
+        set
+        {
+            if (value == IsMarkedScreenLayout)
+            {
+                return;
+            }
+
+            var wasLayout = IsScreenLayout;
+            Document.Screen = value ? _screenUse?.Clone() ?? new DashboardScreen() : null;
+            OnScreenChanged(rebuild: wasLayout != IsScreenLayout);
+            Save();
+        }
+    }
+
+    public bool HasBackground => Document.Background is not null;
+
+    public string? BackgroundPath => Document.Background?.Path;
+
+    public ImageFit BackgroundFit => Document.Background?.Fit ?? ImageFit.Fill;
+
+    public double BackgroundOpacity => Document.Background?.Opacity ?? 1;
+
+    /// <summary>Dashboard menu → "Fit the background inside": all of the picture instead of filling (cropping).</summary>
+    public bool BackgroundFits
+    {
+        get => BackgroundFit == ImageFit.Fit;
+        set
+        {
+            if (Document.Background is { } background && value != BackgroundFits)
+            {
+                background.Fit = value ? ImageFit.Fit : ImageFit.Fill;
+                OnBackgroundChanged();
+                Save();
+            }
+        }
+    }
+
+    /// <summary>Dashboard menu → "Dim the background", so readings stand out.</summary>
+    public bool BackgroundDimmed
+    {
+        get => BackgroundOpacity < 1;
+        set
+        {
+            if (Document.Background is { } background && value != BackgroundDimmed)
+            {
+                background.Opacity = value ? DimmedOpacity : 1;
+                OnBackgroundChanged();
+                Save();
+            }
+        }
+    }
+
+    /// <summary>
+    /// A GIF that animates: the background or a picture tile. A cooler screen showing this dashboard draws it at its max
+    /// frames a second instead of every few seconds.
+    /// </summary>
+    public bool HasAnimation =>
+        IsAnimatedFile(Document.Background?.Path) || Document.Tiles.Any(t => t.Type == WidgetType.Image && IsAnimatedFile(t.Media));
+
+    /// <summary>Replaces the tiles and the screen with a ready-made screen layout (the cooler screen's "Reset to default layout").</summary>
+    public void ApplyScreenLayout(DashboardDocument layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        Document.Tiles = [.. layout.Tiles];
+        Document.Screen = layout.Screen?.Clone();
+        OnScreenChanged(rebuild: false);
+        Rebuild();
+        Save();
+    }
+
+    [RelayCommand]
+    private void ChooseBackground()
+    {
+        var path = _services.Dialogs.PickOpenFile("Background picture or GIF", MediaFiles.PictureFilter);
+        if (path is null)
+        {
+            return;
+        }
+
+        if (!MediaFiles.IsImage(path))
+        {
+            _services.Dialogs.ShowError("Choose a picture (PNG, JPEG, BMP, TIFF) or a GIF.");
+            return;
+        }
+
+        try
+        {
+            var stored = MediaLibrary.Import(path);
+            var old = Document.Background;
+            Document.Background = new DashboardBackground { Path = stored, Fit = old?.Fit ?? ImageFit.Fill, Opacity = old?.Opacity ?? 1 };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            _services.Dialogs.ShowError($"Couldn't use that picture: {ex.Message}");
+            return;
+        }
+
+        OnBackgroundChanged();
+        Save();
+    }
+
+    [RelayCommand]
+    private void RemoveBackground()
+    {
+        if (Document.Background is null)
+        {
+            return;
+        }
+
+        Document.Background = null;
+        OnBackgroundChanged();
+        Save();
+    }
+
+    private static bool IsAnimatedFile(string? path) =>
+        path is not null && MediaFiles.KindOf(path) == MediaKind.Gif && (MediaCache.TryGetLoaded(path)?.IsAnimated ?? true);
+
+    private void OnBackgroundChanged()
+    {
+        OnPropertyChanged(nameof(HasBackground));
+        OnPropertyChanged(nameof(BackgroundPath));
+        OnPropertyChanged(nameof(BackgroundFit));
+        OnPropertyChanged(nameof(BackgroundOpacity));
+        OnPropertyChanged(nameof(BackgroundFits));
+        OnPropertyChanged(nameof(BackgroundDimmed));
+    }
+
+    /// <summary>Numbers on a screen layout fill their tiles, so the tiles are rebuilt when that changes.</summary>
+    private void OnScreenChanged(bool rebuild)
+    {
+        OnPropertyChanged(nameof(EffectiveScreen));
+        OnPropertyChanged(nameof(IsScreenLayout));
+        OnPropertyChanged(nameof(ScreenGrid));
+        OnPropertyChanged(nameof(ScreenCaption));
+        OnPropertyChanged(nameof(IsMarkedScreenLayout));
+        if (rebuild)
+        {
+            Rebuild();
+        }
+    }
 
     /// <summary>Asks for a new heading for a tile (blank = back to the automatic one, e.g. the hardware's name).</summary>
     public void RenameTitle(TileViewModel tile)
@@ -115,7 +311,7 @@ public sealed partial class DashboardDocumentViewModel : ObservableObject, IDisp
         Tiles.Clear();
         foreach (var spec in Document.Tiles)
         {
-            Tiles.Add(new TileViewModel(spec, _services.Store, _services.FanProfiles));
+            Tiles.Add(NewTile(spec));
         }
 
         OnPropertyChanged(nameof(IsEmpty));
@@ -155,12 +351,13 @@ public sealed partial class DashboardDocumentViewModel : ObservableObject, IDisp
         }
 
         var (colSpan, rowSpan) = TileSpec.DefaultSize(spec.Type, spec.Sensors.Count);
-        spec.ColSpan = colSpan;
+        var columns = ScreenGrid?.Columns ?? GridLayout.Columns; // a screen layout's new tiles go inside its frame
+        spec.ColSpan = Math.Min(colSpan, columns);
         spec.RowSpan = spec.Type == WidgetType.Section ? FitSection(spec) : rowSpan;
-        (spec.Col, spec.Row) = GridLayout.FindFreeSpot(Document.Tiles, spec.ColSpan, spec.RowSpan);
+        (spec.Col, spec.Row) = GridLayout.FindFreeSpot(Document.Tiles, spec.ColSpan, spec.RowSpan, columns);
         GridLayout.Clamp(spec);
         Document.Tiles.Add(spec);
-        Tiles.Add(new TileViewModel(spec, _services.Store, _services.FanProfiles));
+        Tiles.Add(NewTile(spec));
         OnPropertyChanged(nameof(IsEmpty));
         Save();
     }
@@ -200,6 +397,8 @@ public sealed partial class DashboardDocumentViewModel : ObservableObject, IDisp
         Save();
     }
 
+    private TileViewModel NewTile(TileSpec spec) => new(spec, _services.Store, _services.FanProfiles, fillNumbers: IsScreenLayout);
+
     /// <summary>A section's height follows its rows (24 cores need more room than 3 RAM lines).</summary>
     private int FitSection(TileSpec spec) => _services.Store.Sensors.Count == 0
         ? Math.Max(spec.RowSpan, TileSpec.DefaultSize(WidgetType.Section, 0).RowSpan) // no sensors yet: don't shrink it to nothing
@@ -215,9 +414,9 @@ public sealed partial class DashboardDocumentViewModel : ObservableObject, IDisp
 
         tile.SyncSpec();
         var copy = tile.Spec.Clone();
-        (copy.Col, copy.Row) = GridLayout.FindFreeSpot(Document.Tiles, copy.ColSpan, copy.RowSpan);
+        (copy.Col, copy.Row) = GridLayout.FindFreeSpot(Document.Tiles, copy.ColSpan, copy.RowSpan, ScreenGrid?.Columns ?? GridLayout.Columns);
         Document.Tiles.Add(copy);
-        Tiles.Add(new TileViewModel(copy, _services.Store, _services.FanProfiles));
+        Tiles.Add(NewTile(copy));
         OnPropertyChanged(nameof(IsEmpty));
         Save();
     }
