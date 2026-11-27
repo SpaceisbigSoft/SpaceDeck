@@ -72,6 +72,18 @@ jobs:
         shell: pwsh
         run: ./scripts/Build-Installer.ps1 -Version '${{ steps.version.outputs.version }}'
 
+      # The FanControl plugin's fork pins SDK 9 in its global.json.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: FanControl plugin
+        # The cooler screen, the cooler readings and the screen ring need SpaceDeck's FanControl plugin, which the MSI
+        # doesn't install. Built from the fork's spacedeck branch and zipped beside the MSI (and listed in
+        # SHA256SUMS.txt) by the script, which can be run the same way on a PC first.
+        shell: pwsh
+        run: ./scripts/Build-FanControlPlugin.ps1
+
       - uses: actions/upload-artifact@v4
         with:
           name: SpaceDeck-${{ steps.version.outputs.version }}-installer
