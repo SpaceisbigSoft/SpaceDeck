@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using SpaceDeck.Core.Screens;
 
 namespace SpaceDeck.Core.Dashboards;
 
@@ -57,6 +58,9 @@ public enum WidgetType
     /// Made for the sidebar.
     /// </summary>
     Section,
+
+    /// <summary>A picture or animated GIF (<see cref="TileSpec.Media"/>), filled or fitted, at an opacity.</summary>
+    Image,
 }
 
 /// <summary>One dashboard: a name and its tiles. Saved as one JSON file.</summary>
@@ -77,6 +81,15 @@ public sealed class DashboardDocument
 
     public List<TileSpec> Tiles { get; set; } = [];
 
+    /// <summary>A picture or animated GIF behind all tiles; null = none (the skin's background).</summary>
+    public DashboardBackground? Background { get; set; }
+
+    /// <summary>
+    /// Set for a layout made for a cooler screen: edited in a frame of the screen's shape and drawn on the screen as
+    /// exactly that area (<see cref="ScreenLayoutGrid"/>); null = an ordinary dashboard.
+    /// </summary>
+    public DashboardScreen? Screen { get; set; }
+
     public static string NewId() => Guid.NewGuid().ToString("N")[..12];
 
     /// <summary>A deep copy with a new id (and new tile ids).</summary>
@@ -85,7 +98,37 @@ public sealed class DashboardDocument
         Name = name,
         Order = Order,
         Tiles = [.. Tiles.Select(t => t.Clone())],
+        Background = Background?.Clone(),
+        Screen = Screen?.Clone(),
     };
+}
+
+/// <summary>A dashboard's background picture.</summary>
+public sealed class DashboardBackground
+{
+    public const double MinOpacity = 0.05;
+
+    /// <summary>The picture or GIF (SpaceDeck's own copy, see the app's media library).</summary>
+    public string Path { get; set; } = "";
+
+    public ImageFit Fit { get; set; } = ImageFit.Fill;
+
+    /// <summary>0.05–1; lower lets the skin's background show through (dimmer, so readings stand out).</summary>
+    public double Opacity { get; set; } = 1;
+
+    public DashboardBackground Clone() => new() { Path = Path, Fit = Fit, Opacity = Opacity };
+}
+
+/// <summary>The screen a screen layout is made for, in its own pixels (the GA II LCD: 480 × 480).</summary>
+public sealed class DashboardScreen
+{
+    public const int MaxSide = 1024;
+
+    public int Width { get; set; } = 480;
+
+    public int Height { get; set; } = 480;
+
+    public DashboardScreen Clone() => new() { Width = Width, Height = Height };
 }
 
 /// <summary>
@@ -158,6 +201,15 @@ public sealed class TileSpec
     /// <summary>A section's hidden rows, by automatic name (e.g. "System Fan #4").</summary>
     public List<string>? HiddenRows { get; set; }
 
+    /// <summary>The picture or GIF an <see cref="WidgetType.Image"/> tile shows (SpaceDeck's own copy).</summary>
+    public string? Media { get; set; }
+
+    /// <summary>How an <see cref="WidgetType.Image"/> tile's picture fills it; null = <see cref="ImageFit.Fill"/>.</summary>
+    public ImageFit? Fit { get; set; }
+
+    /// <summary>An <see cref="WidgetType.Image"/> tile's opacity, 0.05–1; null = 1.</summary>
+    public double? Opacity { get; set; }
+
     public TileSpec Clone() => new()
     {
         Type = Type,
@@ -182,6 +234,9 @@ public sealed class TileSpec
         Rows = Rows?.ToList(),
         Labels = Labels is null ? null : new Dictionary<string, string>(Labels, StringComparer.Ordinal),
         HiddenRows = HiddenRows?.ToList(),
+        Media = Media,
+        Fit = Fit,
+        Opacity = Opacity,
     };
 
     /// <summary>Smallest sensible size for each widget, in cells.</summary>
@@ -200,6 +255,7 @@ public sealed class TileSpec
         WidgetType.Throughput => (3, 2),
         WidgetType.Text => (2, 1),
         WidgetType.Section => (2, 2),
+        WidgetType.Image => (1, 1),
         _ => (1, 1),
     };
 
@@ -220,6 +276,7 @@ public sealed class TileSpec
         WidgetType.Throughput => (4, 5),
         WidgetType.Text => (6, 1),
         WidgetType.Section => (3, 6),
+        WidgetType.Image => (4, 4),
         _ => (3, 3),
     };
 
@@ -230,5 +287,5 @@ public sealed class TileSpec
     /// <summary>Widgets that need no sensor at all.</summary>
     public static bool NeedsNoSensor(WidgetType type) =>
         type is WidgetType.Label or WidgetType.FanProfiles or WidgetType.CoreMap or WidgetType.Clock or WidgetType.Uptime or WidgetType.Throughput
-            or WidgetType.Section;
+            or WidgetType.Section or WidgetType.Image;
 }

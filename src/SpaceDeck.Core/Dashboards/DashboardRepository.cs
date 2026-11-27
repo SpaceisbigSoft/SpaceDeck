@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SpaceDeck.Core.Screens;
 
 namespace SpaceDeck.Core.Dashboards;
 
@@ -152,11 +153,30 @@ public sealed class DashboardRepository
             tile.WindowSeconds = Math.Clamp(tile.WindowSeconds, 30, 3600);
             tile.Decimals = tile.Decimals is { } d ? Math.Clamp(d, 0, 4) : null;
             tile.Accent = tile.Accent is { } a ? Math.Clamp(a, 0, 5) : null;
+            tile.Media = string.IsNullOrWhiteSpace(tile.Media) ? null : tile.Media;
+            tile.Opacity = tile.Opacity is { } o ? ClampOpacity(o) : null;
+            tile.Fit = tile.Fit is { } fit && !Enum.IsDefined(fit) ? null : tile.Fit;
             GridLayout.Clamp(tile);
+        }
+
+        if (doc.Background is { } background)
+        {
+            background.Opacity = ClampOpacity(background.Opacity);
+            background.Fit = Enum.IsDefined(background.Fit) ? background.Fit : ImageFit.Fill;
+            doc.Background = string.IsNullOrWhiteSpace(background.Path) ? null : background;
+        }
+
+        if (doc.Screen is { } screen && (screen.Width is < 1 or > DashboardScreen.MaxSide || screen.Height is < 1 or > DashboardScreen.MaxSide))
+        {
+            doc.Screen = null;
         }
 
         return doc;
     }
+
+    /// <summary>An opacity in range (0.05–1); NaN and infinities become fully opaque.</summary>
+    private static double ClampOpacity(double opacity) =>
+        double.IsFinite(opacity) ? Math.Clamp(opacity, DashboardBackground.MinOpacity, 1) : 1;
 
     /// <summary>Ids are short lowercase hex (see <see cref="DashboardDocument.NewId"/>); anything else is rejected.</summary>
     public static bool IsValidId(string? id) =>

@@ -76,15 +76,23 @@ public static class GridLayout
     }
 
     /// <summary>The first free spot for a tile of this size, scanning rows top to bottom, columns left to right.</summary>
-    public static (int Col, int Row) FindFreeSpot(IEnumerable<TileSpec> tiles, int colSpan, int rowSpan)
+    public static (int Col, int Row) FindFreeSpot(IEnumerable<TileSpec> tiles, int colSpan, int rowSpan) =>
+        FindFreeSpot(tiles, colSpan, rowSpan, Columns);
+
+    /// <summary>
+    /// The first free spot for a tile of this size within the left <paramref name="columns"/> columns (a screen
+    /// layout's width), scanning rows top to bottom, columns left to right.
+    /// </summary>
+    public static (int Col, int Row) FindFreeSpot(IEnumerable<TileSpec> tiles, int colSpan, int rowSpan, int columns)
     {
         ArgumentNullException.ThrowIfNull(tiles);
         var rects = tiles.Select(CellRect.Of).ToList();
-        colSpan = Math.Clamp(colSpan, 1, Columns);
+        columns = Math.Clamp(columns, 1, Columns);
+        colSpan = Math.Clamp(colSpan, 1, columns);
         var lastRow = rects.Count == 0 ? 0 : rects.Max(r => r.Bottom);
         for (var row = 0; row <= lastRow; row++)
         {
-            for (var col = 0; col + colSpan <= Columns; col++)
+            for (var col = 0; col + colSpan <= columns; col++)
             {
                 var candidate = new CellRect(col, row, colSpan, rowSpan);
                 if (!rects.Any(r => r.Overlaps(candidate)))
