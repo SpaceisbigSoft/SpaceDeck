@@ -1,8 +1,6 @@
 using System.IO.Pipes;
-using System.Runtime.InteropServices;
 using SpaceDeck.Collector.Pipe;
 using SpaceDeck.Core.PluginPipe;
-using SpaceDeck.Integrations.FanControl;
 
 namespace SpaceDeck.Collector.Plugins;
 
@@ -232,17 +230,7 @@ public sealed partial class PluginPipeServer : BackgroundService
     }
 
     /// <summary>Null if the client process is accepted; otherwise why not.</summary>
-    private string? CheckClient(NamedPipeServerStream pipe, out int processId)
-    {
-        processId = 0;
-        if (!GetNamedPipeClientProcessId(pipe.SafePipeHandle, out var pid))
-        {
-            return "couldn't tell which process connected";
-        }
-
-        processId = (int)pid;
-        return _verifier.Check(processId, FanControlLocator.TryGetImagePath(processId));
-    }
+    private string? CheckClient(NamedPipeServerStream pipe, out int processId) => PluginPipeClient.Check(pipe, _verifier, out processId);
 
     /// <summary>
     /// Reads lines until the client closes the pipe (null) or breaks a rule (the reason). Lines are split here, with the
@@ -378,10 +366,6 @@ public sealed partial class PluginPipeServer : BackgroundService
             return _loggedReasons.Count < MaxLoggedReasons && _loggedReasons.Add(kind + "|" + reason);
         }
     }
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetNamedPipeClientProcessId(SafeHandle pipe, out uint clientProcessId);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Listening for FanControl plugins on named pipe '{PipeName}'.")]
     private static partial void LogListening(ILogger logger, string pipeName);

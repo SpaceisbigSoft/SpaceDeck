@@ -130,6 +130,14 @@ if (!isReplay)
         sp.GetRequiredService<PluginBridgeSource>(),
         sp.GetRequiredService<IPluginClientVerifier>(),
         sp.GetRequiredService<ILogger<PluginPipeServer>>()));
+
+    // Cooler screens (docs/SCREEN-PIPE.md): app clients send frames for screens the plugin listed; the screen pipe hands
+    // them to the same plugin, checked like the plugin pipe's client.
+    builder.Services.AddSingleton(sp => new ScreenRelay(sp.GetRequiredService<PluginBridgeSource>(), sp.GetRequiredService<ILogger<ScreenRelay>>()));
+    builder.Services.AddHostedService(sp => new ScreenPipeServer(
+        sp.GetRequiredService<ScreenRelay>(),
+        sp.GetRequiredService<IPluginClientVerifier>(),
+        sp.GetRequiredService<ILogger<ScreenPipeServer>>()));
 }
 
 builder.Services.AddSingleton<ISensorSourceFactory>(sp => new DefaultSensorSourceFactory(sp.GetService<PluginBridgeSource>()));
@@ -139,7 +147,8 @@ builder.Services.AddHostedService(sp => new PollingService(
     sp.GetRequiredService<IOptions<CollectorOptions>>(),
     sp.GetRequiredService<ILogger<PollingService>>(),
     configPath: null,
-    persistBlockedReason: persistBlockedReason));
+    persistBlockedReason: persistBlockedReason,
+    extraStatuses: sp.GetService<ScreenRelay>() is { } screens ? screens.StatusEntries : null));
 builder.Services.AddHostedService<PipeServer>();
 if (parentProcessId is { } parentPid)
 {

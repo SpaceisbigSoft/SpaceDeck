@@ -18,6 +18,7 @@ public sealed partial class PollingService : BackgroundService
     private readonly HashSet<string> _loggedErrors = new(StringComparer.Ordinal);
     private readonly string _configPath;
     private readonly string? _persistBlockedReason;
+    private readonly Func<IEnumerable<SourceStatusEntry>>? _extraStatuses;
 
     private static readonly TimeSpan WaitSlice = TimeSpan.FromMilliseconds(100);
 
@@ -44,11 +45,14 @@ public sealed partial class PollingService : BackgroundService
 
     /// <param name="configPath">collector.json to save settings to (tests pass a temp file).</param>
     /// <param name="persistBlockedReason">When set, saving settings is refused with this message (the data folder isn't safe).</param>
+    /// <param name="extraStatuses">Status entries that aren't sensor sources, published with theirs every poll (the cooler
+    /// screen pipe next to <c>lianli</c>).</param>
     public PollingService(SensorHub hub, ISensorSourceFactory factory, IOptions<CollectorOptions> options, ILogger<PollingService> logger,
-        string? configPath = null, string? persistBlockedReason = null)
+        string? configPath = null, string? persistBlockedReason = null, Func<IEnumerable<SourceStatusEntry>>? extraStatuses = null)
     {
         _configPath = configPath ?? CollectorConfigFile.DefaultPath;
         _persistBlockedReason = persistBlockedReason;
+        _extraStatuses = extraStatuses;
         ArgumentNullException.ThrowIfNull(options);
         _hub = hub;
         _factory = factory;
@@ -397,8 +401,20 @@ public sealed partial class PollingService : BackgroundService
 
     private void PublishStatus()
     {
-        var statuses = _sources.Select(s => new SourceStatusEntry(s.Name, s.Status, s.StatusMessage)).ToArray();
-        _hub.PublishStatus(statuses);
+        var statuses = _sources.Select(s => new SourceStatusEntry(s.Name, s.Status, s.StatusMessage)).ToList();
+        if (_extraStatuses is not null)
+        {
+            try
+            {
+                statuses.AddRange(_extraStatuses());
+            }
+            catch (Exception ex)
+            {
+                LogOnce("status", ex);
+            }
+        }
+
+        _hub.PublishStatus([.. statuses]);
     }
 
     /// <summary>Logs each distinct error once as a warning, so a failing sensor doesn't flood the log every second.</summary>
