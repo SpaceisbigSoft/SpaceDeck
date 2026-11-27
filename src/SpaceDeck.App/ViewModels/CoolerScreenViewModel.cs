@@ -188,7 +188,13 @@ public sealed partial class CoolerScreenViewModel : ObservableObject, IDisposabl
             return;
         }
 
-        EnsureDashboard();
+        // Made here only while none was ever chosen (no sensors yet when it was turned on). A deleted one isn't made
+        // again behind the user's back: turning the screen off and on, or choosing another, does that.
+        if (_settings.DashboardId is null)
+        {
+            EnsureDashboard();
+        }
+
         if (Dashboard is null)
         {
             Stop(_settings.DashboardId is null ? "Waiting for sensors…" : "Its dashboard was deleted: choose another.");
@@ -234,7 +240,7 @@ public sealed partial class CoolerScreenViewModel : ObservableObject, IDisposabl
         _renderer = null;
     }
 
-    /// <summary>The first time the screen is on (or after its dashboard was deleted), it gets the built-in one.</summary>
+    /// <summary>Turned on without a dashboard (the first time, or after its dashboard was deleted): it gets the built-in one.</summary>
     private void EnsureDashboard()
     {
         // Adding the dashboard raises the dashboard list's change, which comes back here before the id is stored.

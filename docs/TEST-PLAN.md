@@ -55,6 +55,16 @@ Dark HUD, Nord, Dracula, Gruvbox, Cyberpunk, Synthwave, Red Team, OLED black, Pa
 - [x] Save backup → change something → restore → restarts with the change undone; phone stays paired.
 - [ ] `spacedeck-cli diff` on two hardware reports.
 
+## H2. Cooler screen (Lian Li GA II LCD, FanControl with SpaceDeck's Lian Li plugin with screen support)
+- [ ] `spacedeck-cli screen-test --hardware ?` lists `lianli:/LianLi/0  … 480 × 480`; `--hardware lianli:/LianLi/0`
+      shows the colour bars and the time on the cooler, the frame number counting up; ~20 s after it ends the cooler
+      shows its own screen again. Diagnostics → "Cooler screen pipe" counts the frames.
+- [ ] Settings → Cooler screen: the cooler is listed, Off. Turning it on makes the "Cooler screen" dashboard and the
+      preview and the cooler show it within the interval; rotation, interval and quality apply to the next frame.
+- [ ] Turning it off, closing SpaceDeck and stopping the collector service each bring the cooler's own screen back
+      within ~25 s; fan and pump control in FanControl are unaffected throughout.
+- [ ] Switch skins while it runs: the next frame uses the new skin. The main window stays responsive.
+
 ## I. Without admin / without PawnIO (optional, informative)
 - [ ] Run the collector from a normal (non-admin) terminal on another pipe:
       `src\SpaceDeck.Collector\bin\Release\net10.0-windows\SpaceDeck.Collector.exe --pipe SpaceDeck-test` and
