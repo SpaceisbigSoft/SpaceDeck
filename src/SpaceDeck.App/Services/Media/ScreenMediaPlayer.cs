@@ -144,6 +144,7 @@ internal sealed class ScreenMediaPlayer : IDisposable
             var turned = new BgraImage(Playback.Width, Playback.Height);
             var pacer = new FramePacer(Playback.MaxFramesPerSecond, KeepAlive);
             var meter = new FrameRateMeter();
+            var picker = new JpegQualityPicker(Playback.Quality, ScreenFrameRules.MaxJpegBytes);
             var clock = Stopwatch.StartNew();
             TimeSpan? lastReport = null; // not TimeSpan.MinValue: now - MinValue overflows after the first frame
             string? lastSkip = null;
@@ -160,7 +161,12 @@ internal sealed class ScreenMediaPlayer : IDisposable
                 {
                     ScreenCompositor.Compose(content.Picture, content.IsOpaque, upright, Playback.Fit, Playback.BackgroundRgb);
                     ScreenCompositor.Rotate(upright, Playback.Rotation, turned);
-                    var jpeg = CoolerScreenRenderer.EncodeJpeg(ToBitmap(turned), Playback.Quality, ScreenFrameRules.MaxJpegBytes);
+                    // A moving picture shares the animation budget (the GA II LCD flashes on large frames at 30 a
+                    // second); a still one (NextChange null) is sent rarely and may use the whole 256 KiB.
+                    picker.Configure(Playback.Quality, content.NextChange is null
+                        ? ScreenFrameRules.MaxJpegBytes
+                        : ScreenFrameBudget.ForAnimation(Playback.MaxFramesPerSecond));
+                    var jpeg = CoolerScreenRenderer.EncodeJpeg(ToBitmap(turned), picker);
                     if (jpeg is null)
                     {
                         Post(() => _host.OnProblem(this, "This picture doesn't fit in a 256 KiB JPEG: choose a lower picture quality.", null));

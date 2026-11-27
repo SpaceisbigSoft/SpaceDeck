@@ -34,6 +34,9 @@ public sealed partial class CoolerScreenViewModel : ObservableObject, IDisposabl
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly FrameRateMeter _meter = new();
     private CoolerScreenRenderer? _renderer;
+
+    /// <summary>Dashboard frames' JPEG quality within their budget; used by one encode at a time (<c>_busy</c>).</summary>
+    private JpegQualityPicker? _qualityPicker;
     private ScreenMediaPlayer? _player;
     private FramePacer? _pacer;
     private IDisposable? _timerResolution;
@@ -552,8 +555,11 @@ public sealed partial class CoolerScreenViewModel : ObservableObject, IDisposabl
             Preview = upright;
             dashboard.ScreenPreview = upright;
 
-            var quality = _settings.JpegQuality;
-            var jpeg = await Task.Run(() => CoolerScreenRenderer.EncodeJpeg(CoolerScreenRenderer.Rotate(upright, rotation), quality, ScreenFrameRules.MaxJpegBytes));
+            // A dashboard with a GIF on it (paced) shares the animation budget; a plain one is sent every few seconds.
+            var budget = _pacer is not null ? ScreenFrameBudget.ForAnimation(_settings.MaxFramesPerSecond) : ScreenFrameRules.MaxJpegBytes;
+            var picker = _qualityPicker ??= new JpegQualityPicker(_settings.JpegQuality, budget);
+            picker.Configure(_settings.JpegQuality, budget);
+            var jpeg = await Task.Run(() => CoolerScreenRenderer.EncodeJpeg(CoolerScreenRenderer.Rotate(upright, rotation), picker));
             if (jpeg is null)
             {
                 Status = "This dashboard doesn't fit in a 256 KiB picture: choose a simpler one or a lower quality.";

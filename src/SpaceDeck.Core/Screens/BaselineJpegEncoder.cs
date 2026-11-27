@@ -1,9 +1,13 @@
 namespace SpaceDeck.Core.Screens;
 
 /// <summary>
-/// A small baseline JPEG encoder (ITU T.81: JFIF, 8-bit YCbCr 4:4:4, the standard Annex K tables), so the CLI can make
+/// A small baseline JPEG encoder (ITU T.81: JFIF, 8-bit YCbCr 4:2:0, the standard Annex K tables), so the CLI can make
 /// test pictures for a cooler screen without WPF or System.Drawing. Slow but simple; meant for a few frames a second at
 /// screen sizes. The app uses WPF's encoder.
+/// <para>
+/// 4:2:0 (colour at half resolution both ways, like WPF's and most cameras' JPEGs) rather than 4:4:4: the Lian Li GA II
+/// LCD drew a one-pixel coloured row at sharp colour edges from 4:4:4 pictures, never from WPF's 4:2:0 ones.
+/// </para>
 /// </summary>
 public static class BaselineJpegEncoder
 {
@@ -103,25 +107,51 @@ public static class BaselineJpegEncoder
         Span<int> zigzag = stackalloc int[64];
         Span<double> rows = stackalloc double[64];
         var previousDc = new int[3];
-        for (var blockY = 0; blockY < height; blockY += 8)
+
+        // One MCU = 16 × 16 pixels: four Y blocks (left to right, top to bottom), then one Cb and one Cr block, each
+        // chroma sample the average of 2 × 2 pixels. Edge pixels repeat past the picture.
+        for (var mcuY = 0; mcuY < height; mcuY += 16)
         {
-            for (var blockX = 0; blockX < width; blockX += 8)
+            for (var mcuX = 0; mcuX < width; mcuX += 16)
             {
+                for (var block = 0; block < 4; block++)
+                {
+                    var blockX = mcuX + ((block & 1) * 8);
+                    var blockY = mcuY + ((block >> 1) * 8);
+                    for (var row = 0; row < 8; row++)
+                    {
+                        var py = Math.Min(blockY + row, height - 1);
+                        for (var col = 0; col < 8; col++)
+                        {
+                            var px = Math.Min(blockX + col, width - 1);
+                            var i = ((py * width) + px) * 3;
+                            y[(row * 8) + col] = (0.299 * rgb[i]) + (0.587 * rgb[i + 1]) + (0.114 * rgb[i + 2]) - 128;
+                        }
+                    }
+
+                    EncodeBlock(y, rows, zigzag, lumaQuant, ref previousDc[0], dcLuma, acLuma, bits);
+                }
+
                 for (var row = 0; row < 8; row++)
                 {
-                    var py = Math.Min(blockY + row, height - 1); // edge pixels repeat past the picture
+                    var py0 = Math.Min(mcuY + (row * 2), height - 1);
+                    var py1 = Math.Min(mcuY + (row * 2) + 1, height - 1);
                     for (var col = 0; col < 8; col++)
                     {
-                        var px = Math.Min(blockX + col, width - 1);
-                        var i = ((py * width) + px) * 3;
-                        double r = rgb[i], g = rgb[i + 1], b = rgb[i + 2];
-                        y[(row * 8) + col] = (0.299 * r) + (0.587 * g) + (0.114 * b) - 128;
+                        var px0 = Math.Min(mcuX + (col * 2), width - 1);
+                        var px1 = Math.Min(mcuX + (col * 2) + 1, width - 1);
+                        var p00 = ((py0 * width) + px0) * 3;
+                        var p01 = ((py0 * width) + px1) * 3;
+                        var p10 = ((py1 * width) + px0) * 3;
+                        var p11 = ((py1 * width) + px1) * 3;
+                        var r = (rgb[p00] + rgb[p01] + rgb[p10] + rgb[p11]) / 4.0;
+                        var g = (rgb[p00 + 1] + rgb[p01 + 1] + rgb[p10 + 1] + rgb[p11 + 1]) / 4.0;
+                        var b = (rgb[p00 + 2] + rgb[p01 + 2] + rgb[p10 + 2] + rgb[p11 + 2]) / 4.0;
                         cb[(row * 8) + col] = (-0.168736 * r) - (0.331264 * g) + (0.5 * b);
                         cr[(row * 8) + col] = (0.5 * r) - (0.418688 * g) - (0.081312 * b);
                     }
                 }
 
-                EncodeBlock(y, rows, zigzag, lumaQuant, ref previousDc[0], dcLuma, acLuma, bits);
                 EncodeBlock(cb, rows, zigzag, chromaQuant, ref previousDc[1], dcChroma, acChroma, bits);
                 EncodeBlock(cr, rows, zigzag, chromaQuant, ref previousDc[2], dcChroma, acChroma, bits);
             }
@@ -224,9 +254,9 @@ public static class BaselineJpegEncoder
             output.Add(chromaQuant[ZigZag[k]]);
         }
 
-        // SOF0: 8-bit, three components, no subsampling; Y uses table 0, Cb and Cr table 1.
+        // SOF0: 8-bit, three components; Y sampled 2 × 2 (table 0), Cb and Cr 1 × 1 (table 1) = 4:2:0.
         output.AddRange([0xFF, 0xC0, 0x00, 17, 8, (byte)(height >> 8), (byte)height, (byte)(width >> 8), (byte)width, 3,
-            1, 0x11, 0, 2, 0x11, 1, 3, 0x11, 1]);
+            1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
 
         // DHT: DC/AC luminance (class/id 0x00, 0x10), DC/AC chrominance (0x01, 0x11).
         (byte Id, byte[] Bits, byte[] Values)[] tables =

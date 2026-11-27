@@ -46,6 +46,14 @@ A new app-pipe request `ScreenFrame { HardwareId, Jpeg }` (protocol version bump
 - `HardwareId`: a hardware id the collector has from the plugin with a `screen` (e.g. `lianli:/LianLi/0`).
 - `Jpeg`: 1 byte – 256 KiB, starts `FF D8`, ends `FF D9`, the screen's size (the collector checks the markers and
   the size field only; it does not decode).
+- **Frame size the app aims for** (`ScreenFrameBudget`, app side only; the collector still allows 256 KiB): moving
+  pictures (GIF, video, slideshow, a dashboard with a GIF) share 72 KiB × 30 = 2,160 KiB a second, i.e. 72 KiB per
+  frame at 30 a second, 90 KiB at 24, the full 256 KiB at 8 or fewer. The GA II LCD flashed with 128 KB frames at 30 a
+  second and was clean with ~23 KB ones. The app lowers the JPEG quality in steps of 5 while a frame is too large,
+  starts the next frame where the last fitted, and steps back up after 30 frames well under the budget
+  (`JpegQualityPicker`). Still pictures and plain dashboards may use the whole 256 KiB.
+- All JPEGs are 4:2:0 (the app's WPF encoder and `spacedeck-cli`'s `BaselineJpegEncoder`): the GA II LCD drew a
+  one-pixel coloured row at sharp colour edges from 4:4:4 pictures.
 - **One sender per screen.** The app-pipe client whose frame was last accepted for a screen owns it; frames for that
   screen from any other client are refused (counted apart, as "refused (another sender)", not as dropped) until the
   owner has sent nothing for 3 s or disconnects, and then the next sender takes over. So the app's dashboard and a

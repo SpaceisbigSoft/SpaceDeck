@@ -814,11 +814,12 @@ public class ScreenTests
 
     /// <summary>
     /// The entropy-coded data after the SOS header, against a reference encoder (a line-by-line Python port decoded and
-    /// checked with Pillow: largest error 5 levels at quality 85). Covers edge padding (13×11) and FF 00 stuffing.
+    /// checked with Pillow: largest error 12–17 levels at quality 85 on this steep test gradient, as Pillow's own 4:2:0
+    /// encoder). Covers 4:2:0 edge padding (13×11, 16×16 = one MCU) and FF 00 stuffing.
     /// </summary>
     [Theory]
-    [InlineData(16, 16, "f0cf0e7843eefeebf4a29550c933bdb53d27c39e10fbbfbafd2bd1a554fd7b24cef6d4eefc39e10fbbfbafd2be769553f90f24cef6d4f49f0e7843eefeebf4af469553f5ec933bdb53ffd9")]
-    [InlineData(13, 11, "f0cf0e7843eefeebf4a29550c933bdb53d0b4af087fa3ffaafd2bbe15743f55cbf3bfdd6e747e1cb5b7f97f74b5e1d26cfe62c92b4f4d4f42d2ad6dfecff00ea96bbe0dd8fd572fad3f65b9fffd9")]
+    [InlineData(16, 16, "f0cf0e7843eefeebf4af49f0e7843eefeebf4aeefc39e10fbbfbafd2bd27c39e10fbbfbafd28c362438278dbe1f78fffd9")]
+    [InlineData(13, 11, "f0cf0e7843eefeebf4af42d2bc21fe8ffeabf4ae8fc396b6ff002fee96bd0b4ab5b7fb3ffaa5a787aeec6fc1fc4f5fd9a3ffd9")]
     public void JpegEncoder_MatchesTheReferenceEncoder(int width, int height, string scanHex)
     {
         var jpeg = BaselineJpegEncoder.Encode(Gradient(width, height), width, height, 85);
@@ -828,6 +829,10 @@ public class ScreenTests
         Assert.Equal(scanHex, Convert.ToHexStringLower(jpeg.AsSpan(sos + 14)));
         Assert.True(ScreenFrameRules.TryReadSize(jpeg, out var w, out var h));
         Assert.Equal((width, height), (w, h));
+
+        ReadOnlySpan<byte> startOfFrame = [0xFF, 0xC0];
+        var sof = jpeg.AsSpan().IndexOf(startOfFrame);
+        Assert.Equal(new byte[] { 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1 }, jpeg.AsSpan(sof + 10, 9).ToArray()); // 4:2:0
     }
 
     [Fact]

@@ -154,30 +154,38 @@ internal sealed class CoolerScreenRenderer : IDisposable
     }
 
     /// <summary>
-    /// A baseline JPEG of <paramref name="frame"/> at <paramref name="quality"/>, lowered in steps (down to
-    /// <see cref="CoolerScreenSettings.MinQuality"/>) until it fits in <paramref name="maxBytes"/>; null if it never does.
-    /// Any thread (the frame is frozen).
+    /// A baseline JPEG of <paramref name="frame"/> within <paramref name="picker"/>'s budget: encoded at the picker's
+    /// quality, then lower in its steps while too large (the picker remembers where frames fit, so most frames are encoded
+    /// once). A frame still over the budget at the lowest quality is returned if it fits in
+    /// <see cref="ScreenFrameRules.MaxJpegBytes"/>; null if it doesn't. Any thread (the frame is frozen); one picker per
+    /// screen, never used from two threads at once.
     /// </summary>
-    public static byte[]? EncodeJpeg(BitmapSource frame, int quality, int maxBytes)
+    public static byte[]? EncodeJpeg(BitmapSource frame, JpegQualityPicker picker)
     {
         ArgumentNullException.ThrowIfNull(frame);
-        for (var q = Math.Clamp(quality, CoolerScreenSettings.MinQuality, CoolerScreenSettings.MaxQuality); ; q -= 10)
+        ArgumentNullException.ThrowIfNull(picker);
+        byte[]? fitting = null;
+        for (int? next = picker.Start; next is { } quality; )
         {
-            q = Math.Max(q, CoolerScreenSettings.MinQuality);
-            var encoder = new JpegBitmapEncoder { QualityLevel = q };
-            encoder.Frames.Add(BitmapFrame.Create(frame));
-            using var stream = new MemoryStream();
-            encoder.Save(stream);
-            if (stream.Length <= maxBytes)
+            var jpeg = Encode(frame, quality);
+            if (jpeg.Length <= ScreenFrameRules.MaxJpegBytes)
             {
-                return stream.ToArray();
+                fitting = jpeg; // each try is at a lower quality than the last: keep the newest that may be sent at all
             }
 
-            if (q == CoolerScreenSettings.MinQuality)
-            {
-                return null;
-            }
+            next = picker.After(quality, jpeg.Length);
         }
+
+        return fitting;
+    }
+
+    private static byte[] Encode(BitmapSource frame, int quality)
+    {
+        var encoder = new JpegBitmapEncoder { QualityLevel = quality };
+        encoder.Frames.Add(BitmapFrame.Create(frame));
+        using var stream = new MemoryStream();
+        encoder.Save(stream);
+        return stream.ToArray();
     }
 
     public void Dispose()
