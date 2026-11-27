@@ -135,6 +135,69 @@
         </StackPanel>
       </Border>
 
+      <!-- Cooler screen -->
+      <Border Style="{StaticResource Section}" Margin="0,0,0,28" DataContext="{Binding CoolerScreens}">
+        <StackPanel>
+          <TextBlock Text="Cooler screen" Style="{StaticResource SectionTitle}" />
+          <TextBlock Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap" TextTrimming="None"
+                     Text="Show a dashboard on a cooler's own screen (Lian Li GA II LCD). SpaceDeck draws it in the current look; FanControl's Lian Li plugin passes it to the cooler. When SpaceDeck stops sending (turned off here, closed, or the collector stops), the cooler shows its own screen again after about 20 seconds." />
+          <TextBlock Style="{StaticResource Caption}" Margin="0,12,0,0" TextWrapping="Wrap" TextTrimming="None"
+                     Visibility="{Binding IsEmpty, Converter={StaticResource VisibleWhen}}"
+                     Text="No cooler with a screen is connected. It is listed here once FanControl runs with SpaceDeck's Lian Li plugin and the plugin reports the cooler's screen." />
+          <ItemsControl ItemsSource="{Binding Screens}" Focusable="False">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid Margin="0,14,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" Foreground="{DynamicResource Skin.Text}" TextTrimming="CharacterEllipsis" />
+                    <CheckBox Content="Show a dashboard on this screen" IsChecked="{Binding Enabled}" Margin="0,8,0,0" />
+                    <StackPanel Margin="0,4,0,0" IsEnabled="{Binding Enabled}">
+                      <DockPanel Margin="0,8,0,0">
+                        <ComboBox DockPanel.Dock="Right" Width="220" ItemsSource="{Binding Dashboards}" SelectedItem="{Binding Dashboard}" DisplayMemberPath="Name"
+                                  AutomationProperties.Name="Cooler screen dashboard" />
+                        <TextBlock Text="Dashboard" VerticalAlignment="Center" Foreground="{DynamicResource Skin.Text}" />
+                      </DockPanel>
+                      <DockPanel Margin="0,8,0,0">
+                        <ComboBox DockPanel.Dock="Right" Width="220" ItemsSource="{Binding Intervals}" SelectedItem="{Binding Interval}" DisplayMemberPath="Label"
+                                  AutomationProperties.Name="Cooler screen update interval" />
+                        <TextBlock Text="Update" VerticalAlignment="Center" Foreground="{DynamicResource Skin.Text}" />
+                      </DockPanel>
+                      <DockPanel Margin="0,8,0,0">
+                        <ComboBox DockPanel.Dock="Right" Width="220" ItemsSource="{Binding Rotations}" SelectedItem="{Binding Rotation}" DisplayMemberPath="Label"
+                                  AutomationProperties.Name="Cooler screen rotation" />
+                        <TextBlock Text="Rotation" VerticalAlignment="Center" Foreground="{DynamicResource Skin.Text}" />
+                      </DockPanel>
+                      <DockPanel Margin="0,8,0,0">
+                        <ComboBox DockPanel.Dock="Right" Width="220" ItemsSource="{Binding Qualities}" SelectedItem="{Binding Quality}" DisplayMemberPath="Label"
+                                  AutomationProperties.Name="Cooler screen JPEG quality" />
+                        <TextBlock Text="Picture quality (JPEG)" VerticalAlignment="Center" Foreground="{DynamicResource Skin.Text}" />
+                      </DockPanel>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" Margin="0,8,0,0" TextWrapping="Wrap" TextTrimming="None" />
+                  </StackPanel>
+
+                  <!-- What the cooler shows: the last frame drawn. -->
+                  <Border Grid.Column="1" Width="136" Height="136" Margin="18,2,0,0" VerticalAlignment="Top"
+                          BorderBrush="{DynamicResource Skin.TextFaint}" BorderThickness="1" Background="{DynamicResource Skin.Background}"
+                          ToolTip="Preview of the last frame sent">
+                    <Grid>
+                      <Image Source="{Binding Preview}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+                             AutomationProperties.Name="Cooler screen preview" />
+                      <TextBlock Text="Preview" Style="{StaticResource Caption}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                 Visibility="{Binding Preview, Converter={StaticResource VisibleWhen}, ConverterParameter=invert}" />
+                    </Grid>
+                  </Border>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
       <!-- Network dashboard -->
       <Border Style="{StaticResource Section}" Margin="0,0,0,28" DataContext="{Binding Remote}">
         <StackPanel>

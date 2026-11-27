@@ -117,6 +117,63 @@ public static class DefaultDashboard
         return doc;
     }
 
+    /// <summary>Name of the dashboard made the first time a cooler screen is turned on.</summary>
+    public const string CoolerScreenName = "Cooler screen";
+
+    /// <summary>
+    /// The built-in cooler screen dashboard: square-ish (6 columns × 11 rows ≈ 504 × 516, drawn scaled to the screen)
+    /// with a large CPU temperature, GPU and coolant temperatures, and the pump. Sensors are picked like the main
+    /// dashboard's (by original name and kind); coolant and pump come from the cooler with the screen when it has them.
+    /// Missing sensors leave their place empty (edit the dashboard to fill it).
+    /// </summary>
+    /// <param name="coolerHardwareId">The screen's hardware id, e.g. <c>lianli:/LianLi/0</c>.</param>
+    public static DashboardDocument CreateCoolerScreen(IReadOnlyList<SensorItem> sensors, string? coolerHardwareId)
+    {
+        ArgumentNullException.ThrowIfNull(sensors);
+        var doc = new DashboardDocument { Name = CoolerScreenName };
+        var cooler = sensors.Where(s => s.HardwareId == coolerHardwareId).ToList();
+
+        var cpuTemp = Pick(sensors, HardwareKind.Cpu, SensorKind.Temperature, CpuTemperatureNames);
+        var gpu = GpusByImportance(sensors).FirstOrDefault() ?? [];
+        var gpuTemp = Pick(gpu, HardwareKind.Gpu, SensorKind.Temperature, GpuTemperatureNames);
+        var coolant = cooler.FirstOrDefault(s => s.Kind == SensorKind.Temperature && s.OriginalName.Contains("Coolant", StringComparison.OrdinalIgnoreCase))
+            ?? cooler.FirstOrDefault(s => s.Kind == SensorKind.Temperature)
+            ?? sensors.FirstOrDefault(s => s.Kind == SensorKind.Temperature && s.OriginalName.Contains("Coolant", StringComparison.OrdinalIgnoreCase))
+            ?? Pick(sensors, HardwareKind.Cooler, SensorKind.Temperature, ["Coolant", "Liquid", "Water"]);
+        var pump = cooler.FirstOrDefault(s => s.Kind == SensorKind.Fan && s.OriginalName.Contains("Pump", StringComparison.OrdinalIgnoreCase))
+            ?? sensors.FirstOrDefault(s => s.Kind == SensorKind.Fan && s.OriginalName.Contains("Pump", StringComparison.OrdinalIgnoreCase));
+
+        if (cpuTemp is not null)
+        {
+            var title = cpuTemp.OriginalName.Contains("Package", StringComparison.OrdinalIgnoreCase) ? "CPU package" : "CPU";
+            doc.Tiles.Add(Quiet(Tile(WidgetType.BigNumber, title, 0, 0, 6, 5, cpuTemp)));
+        }
+
+        if (gpuTemp is not null)
+        {
+            doc.Tiles.Add(Quiet(Tile(WidgetType.BigNumber, "GPU", 0, 5, 3, 4, gpuTemp)));
+        }
+
+        if (coolant is not null)
+        {
+            doc.Tiles.Add(Quiet(Tile(WidgetType.BigNumber, "Coolant", 3, 5, 3, 4, coolant)));
+        }
+
+        if (pump is not null)
+        {
+            doc.Tiles.Add(Quiet(Tile(WidgetType.Bar, "Pump", 0, 9, 6, 2, pump)));
+        }
+
+        return doc;
+    }
+
+    /// <summary>No min/max line: a small screen reads better with just the numbers.</summary>
+    private static TileSpec Quiet(TileSpec tile)
+    {
+        tile.ShowMinMax = false;
+        return tile;
+    }
+
     /// <summary>GPUs in order of importance: discrete (has a temperature) first, then by how many sensors they report.</summary>
     internal static List<List<SensorItem>> GpusByImportance(IReadOnlyList<SensorItem> sensors) =>
         sensors.Where(s => s.HardwareKind == HardwareKind.Gpu)

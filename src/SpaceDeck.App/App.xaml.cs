@@ -116,6 +116,7 @@ public partial class App : Application
         services.AddSingleton<AlertsViewModel>();
         services.AddSingleton<TrayReadout>();
         services.AddSingleton<DashboardViewModel>();
+        services.AddSingleton<CoolerScreenService>();
         services.AddSingleton<SensorsViewModel>();
         services.AddSingleton<VoltagesViewModel>();
         services.AddSingleton<FansViewModel>();
@@ -165,6 +166,9 @@ public partial class App : Application
         }
 
         _services.GetRequiredService<DashboardViewModel>().RestoreWindows();
+
+        // Cooler screens draw only once turned on in Settings, and only while the collector is connected.
+        _services.GetRequiredService<CoolerScreenService>();
 
         // Signing out / shutting down Windows: a real exit (not close-to-tray); keep dashboard windows for next time.
         SessionEnding += (_, _) =>

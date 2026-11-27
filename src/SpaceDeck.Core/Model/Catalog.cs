@@ -24,6 +24,8 @@ public sealed record ScreenInfo(
     public const int MaxDimension = 1024;
 
     /// <summary>True when both sides are 1–<see cref="MaxDimension"/> (a newer or damaged peer may send anything).</summary>
+    [IgnoreMember]
+    [System.Text.Json.Serialization.JsonIgnore]
     public bool IsValid => Width is >= 1 and <= MaxDimension && Height is >= 1 and <= MaxDimension;
 }
 

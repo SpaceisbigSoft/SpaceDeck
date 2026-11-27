@@ -27,10 +27,11 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private readonly DialogService _dialogs;
 
-    public SettingsViewModel(SensorStore store, CollectorClient client, AppSettings settings, FanProfileService fans, DialogService dialogs, GlobalHotkeyService hotkeys, RemoteSettingsViewModel remote, SidebarSettingsViewModel sidebar)
+    public SettingsViewModel(SensorStore store, CollectorClient client, AppSettings settings, FanProfileService fans, DialogService dialogs, GlobalHotkeyService hotkeys, RemoteSettingsViewModel remote, SidebarSettingsViewModel sidebar, CoolerScreenService coolerScreens)
     {
         Remote = remote;
         Sidebar = sidebar;
+        CoolerScreens = coolerScreens;
         _dialogs = dialogs;
         _hotkeys = hotkeys;
         ClickThroughHotkey = settings.ClickThroughHotkey;
@@ -359,6 +360,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Screen-edge sidebar section.</summary>
     public SidebarSettingsViewModel Sidebar { get; }
+
+    /// <summary>Cooler screen section: a dashboard on a cooler's own LCD.</summary>
+    public CoolerScreenService CoolerScreens { get; }
 
     [ObservableProperty]
     private string _overlayHotkey = "";

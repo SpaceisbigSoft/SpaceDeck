@@ -112,6 +112,10 @@ public sealed class CollectorClient : IDisposable
     public Task ResetMinMaxAsync(IReadOnlyList<string>? sensorIds, CancellationToken cancellationToken = default) =>
         SendAsync(new ResetMinMaxRequest(sensorIds is null ? null : [.. sensorIds]), cancellationToken);
 
+    /// <summary>Sends one cooler screen frame (protocol 4). Throws if not connected; the collector never answers it.</summary>
+    public Task SendScreenFrameAsync(string hardwareId, byte[] jpeg, CancellationToken cancellationToken = default) =>
+        SendAsync(new ScreenFrameRequest(hardwareId, jpeg), cancellationToken);
+
     public void Dispose()
     {
         _cts.Cancel();
