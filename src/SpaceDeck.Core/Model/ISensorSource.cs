@@ -31,4 +31,10 @@ public interface ISensorSource : IDisposable
 
     /// <summary>Copies current readings into <paramref name="into"/>, whose length must equal <c>Catalog.Sensors.Count</c>.</summary>
     void Read(Span<SensorReading> into);
+
+    /// <summary>
+    /// A line for the collector's log about something the source did by itself (such as looking for missing hardware
+    /// again), or null. Each notice is returned once; asked after <see cref="Update"/>.
+    /// </summary>
+    string? TakeNotice() => null;
 }

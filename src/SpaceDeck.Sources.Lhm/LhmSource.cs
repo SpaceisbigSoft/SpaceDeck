@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using LibreHardwareMonitor.Hardware;
 using SpaceDeck.Core.Formatting;
 using SpaceDeck.Core.Model;
@@ -23,6 +24,14 @@ public sealed class LhmSource : ISensorSource
     private readonly HashSet<IHardware> _watched = new(ReferenceEqualityComparer.Instance);
     private int _catalogVersion;
     private bool _disposed;
+
+    // LHM looks for the motherboard's Super I/O chip (voltages, fans, board temperatures) once, when its motherboard
+    // group opens. A collector restarted by Windows right after it crashed (2026-11-27: inside NVIDIA's NVML at logon)
+    // opened without the chip, and a manual restart minutes later found it; FanControl reads the same chip, and a
+    // look made while it is busy can come up empty. So a start without the chip looks again a few times.
+    private readonly RedetectSchedule _superIoSchedule = new();
+    private long _openedAt;
+    private string? _notice;
 
     // Status after Open, restored when Update works again after a failure (a device that glitched once).
     private SourceStatus _openStatus = SourceStatus.NotOpened;
@@ -93,6 +102,7 @@ public sealed class LhmSource : ISensorSource
             computer.HardwareRemoved += OnHardwareChanged;
             computer.Open();
             _computer = computer;
+            _openedAt = Stopwatch.GetTimestamp();
 
             // Prime values so the first Read isn't all nulls.
             UpdateAll(computer.Hardware);
@@ -128,6 +138,12 @@ public sealed class LhmSource : ISensorSource
 
         try
         {
+            if (_options.Motherboard
+                && _superIoSchedule.IsDue(Stopwatch.GetElapsedTime(_openedAt), IsSuperIoMissing(_computer)))
+            {
+                RedetectMotherboard(_computer);
+            }
+
             UpdateAll(_computer.Hardware);
             if (_updateFailed)
             {
@@ -152,6 +168,13 @@ public sealed class LhmSource : ISensorSource
 
         RebuildCatalog();
         return true;
+    }
+
+    public string? TakeNotice()
+    {
+        var notice = _notice;
+        _notice = null;
+        return notice;
     }
 
     public void Read(Span<SensorReading> into)
@@ -198,6 +221,27 @@ public sealed class LhmSource : ISensorSource
 
             _computer = null;
         }
+    }
+
+    // A motherboard without Super I/O sub-hardware: the chip wasn't found (or the board has none LHM knows).
+    private static bool IsSuperIoMissing(Computer computer) =>
+        computer.Hardware.Any(h => h.HardwareType == HardwareType.Motherboard
+            && !h.SubHardware.Any(s => s.HardwareType == HardwareType.SuperIO));
+
+    // Turning the motherboard group off and on makes LHM open a new one, which looks for the chip again. The
+    // identifiers are the same, so sensor ids, dashboards and history carry on; the catalog is rebuilt as the
+    // hardware comes back (HardwareAdded), and the chip's sensors appear after its first reads (SensorAdded).
+    private void RedetectMotherboard(Computer computer)
+    {
+        computer.IsMotherboardEnabled = false;
+        computer.IsMotherboardEnabled = true;
+        _catalogDirty = true;
+        var found = !IsSuperIoMissing(computer);
+        _notice = found
+            ? $"The motherboard's Super I/O chip was missing at start; found it on look {_superIoSchedule.Attempts}."
+            : _superIoSchedule.IsFinished
+                ? $"The motherboard's Super I/O chip is still missing after {_superIoSchedule.Attempts} looks; motherboard voltages, fans and temperatures stay missing until the collector restarts (or this board has none LibreHardwareMonitor supports)."
+                : $"The motherboard's Super I/O chip is missing; looked again ({_superIoSchedule.Attempts}), will look once more later.";
     }
 
     private void OnHardwareChanged(IHardware hardware) => _catalogDirty = true;
@@ -260,6 +304,29 @@ public sealed class LhmSource : ISensorSource
         foreach (var hw in _computer!.Hardware)
         {
             Walk(hw, null);
+        }
+
+        // Stop listening to devices that are gone (a re-detected motherboard replaces its old objects).
+        var current = new HashSet<IHardware>(ReferenceEqualityComparer.Instance);
+        void Collect(IHardware hw)
+        {
+            current.Add(hw);
+            foreach (var sub in hw.SubHardware)
+            {
+                Collect(sub);
+            }
+        }
+
+        foreach (var hw in _computer!.Hardware)
+        {
+            Collect(hw);
+        }
+
+        foreach (var gone in _watched.Where(h => !current.Contains(h)).ToList())
+        {
+            gone.SensorAdded -= OnSensorChanged;
+            gone.SensorRemoved -= OnSensorChanged;
+            _watched.Remove(gone);
         }
 
         _sensors = [.. sensors];
