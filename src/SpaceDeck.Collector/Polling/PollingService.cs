@@ -138,6 +138,11 @@ public sealed partial class PollingService : BackgroundService
             try
             {
                 source.Update();
+                if (source.TakeNotice() is { } notice)
+                {
+                    LogSourceNotice(_logger, source.Name, notice);
+                }
+
                 catalogChanged |= source.TryRefreshCatalog();
             }
             catch (Exception ex)
@@ -429,6 +434,9 @@ public sealed partial class PollingService : BackgroundService
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Source '{Source}' opened: {Status}, {SensorCount} sensors. {StatusMessage}")]
     private static partial void LogSourceOpened(ILogger logger, string source, SourceStatus status, int sensorCount, string statusMessage);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Source '{Source}': {Notice}")]
+    private static partial void LogSourceNotice(ILogger logger, string source, string notice);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Catalog v{Version}: {HardwareCount} hardware, {SensorCount} sensors.")]
     private static partial void LogCatalogPublished(ILogger logger, int version, int hardwareCount, int sensorCount);
