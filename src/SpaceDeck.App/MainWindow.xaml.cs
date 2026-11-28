@@ -20,6 +20,11 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = viewModel;
         Appearance.Attach(this);
+        RestorePlacement();
+
+        // Kept in the settings as it changes; written to disk when SpaceDeck exits (or Windows signs out).
+        LocationChanged += (_, _) => RememberPlacement();
+        SizeChanged += (_, _) => RememberPlacement();
 
         // Pages that poll pause while the window is hidden in the tray (or was never shown: started with Windows).
         _viewModel.SetWindowShown(false);
@@ -73,12 +78,66 @@ public partial class MainWindow : Window
         if (WindowState != WindowState.Minimized)
         {
             _lastShownState = WindowState;
+            RememberPlacement();
         }
 
         if (WindowState == WindowState.Minimized && _settings.MinimizeToTray)
         {
             HideToTray();
         }
+    }
+
+    // The saved place and size, if it's still on a screen (monitors change); otherwise the XAML default (centred).
+    private void RestorePlacement()
+    {
+        if (_settings.MainWindowPlacement is not { } placement)
+        {
+            return;
+        }
+
+        var screen = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop, SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+        var saved = new Rect(
+            placement.Left,
+            placement.Top,
+            Math.Clamp(placement.Width, MinWidth, Math.Max(MinWidth, screen.Width)),
+            Math.Clamp(placement.Height, MinHeight, Math.Max(MinHeight, screen.Height)));
+        var visible = Rect.Intersect(screen, saved);
+        if (!visible.IsEmpty && visible.Width >= 80 && visible.Height >= 80)
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = saved.Left;
+            Top = saved.Top;
+            Width = saved.Width;
+            Height = saved.Height;
+        }
+
+        if (placement.Maximized)
+        {
+            // Maximize on the monitor the window was on, once it exists there.
+            SourceInitialized += (_, _) => WindowState = WindowState.Maximized;
+        }
+    }
+
+    // Normal bounds (RestoreBounds while maximized); nothing while minimized or before the window first shows.
+    private void RememberPlacement()
+    {
+        if (!IsLoaded || WindowState == WindowState.Minimized)
+        {
+            return;
+        }
+
+        var bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
+        if (bounds.IsEmpty || bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            return;
+        }
+
+        var placement = _settings.MainWindowPlacement ??= new WindowPlacement();
+        placement.Left = bounds.Left;
+        placement.Top = bounds.Top;
+        placement.Width = bounds.Width;
+        placement.Height = bounds.Height;
+        placement.Maximized = WindowState == WindowState.Maximized;
     }
 
     private void HideToTray()

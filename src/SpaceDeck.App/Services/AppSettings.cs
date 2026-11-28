@@ -138,6 +138,9 @@ public sealed class AppSettings
     /// <summary>Where each dashboard's own window was, keyed by dashboard id (restored next time, reopened at startup).</summary>
     public Dictionary<string, DashboardWindowState> DashboardWindows { get; set; } = new();
 
+    /// <summary>Where the main window was and how big (restored at the next start); null until it has been shown.</summary>
+    public WindowPlacement? MainWindowPlacement { get; set; }
+
     public static AppSettings Load()
     {
         try
@@ -242,6 +245,20 @@ public sealed class AppSettings
             // Best effort.
         }
     }
+}
+
+/// <summary>A window's position and size in device-independent pixels (the normal bounds while maximized).</summary>
+public sealed class WindowPlacement
+{
+    public double Left { get; set; }
+
+    public double Top { get; set; }
+
+    public double Width { get; set; }
+
+    public double Height { get; set; }
+
+    public bool Maximized { get; set; }
 }
 
 /// <summary>A dashboard window's placement and options.</summary>
